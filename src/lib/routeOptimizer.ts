@@ -9,25 +9,46 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
     return geocodeCache.get(address)!;
   }
 
-  try {
-    // Tentar com OpenStreetMap primeiro
-    const result = await tryGeocodeWithOpenStreetMap(address);
-    if (result) {
-      geocodeCache.set(address, result);
-      return result;
-    }
+  const strategies = [
+    { name: 'completo', addr: address },
+    { name: 'sem CEP', addr: simplifyAddress(address) },
+    { name: 'apenas rua e número', addr: getStreetAndNumber(address) }
+  ];
 
-    // Se falhar, tentar com serviço alternativo
-    const fallbackResult = await tryGeocodeWithFallback(address);
-    if (fallbackResult) {
-      geocodeCache.set(address, fallbackResult);
-      return fallbackResult;
+  for (const strategy of strategies) {
+    if (!strategy.addr.trim()) continue;
+    
+    try {
+      const result = await tryGeocodeWithOpenStreetMap(strategy.addr);
+      if (result) {
+        geocodeCache.set(address, result);
+        return result;
+      }
+    } catch (error) {
+      console.warn(`Estratégia ${strategy.name} falhou para "${address}":`, error);
     }
-
-    throw new Error(`Não foi possível encontrar o endereço: "${address}"`);
-  } catch (error) {
-    throw new Error(`Falha ao geocodificar endereço "${address}": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
   }
+
+  throw new Error(`Não foi possível encontrar o endereço: "${address}"`);
+}
+
+function getStreetAndNumber(address: string): string {
+  // Extrair rua e número (primeira parte até o primeiro número)
+  const match = address.match(/^[^,]*,\s*\d+/);
+  if (match) {
+    return match[0];
+  }
+  // Fallback: pegar até o primeiro número
+  const match2 = address.match(/^[^\d]*\d+/);
+  return match2 ? match2[0].trim() : address;
+}
+
+function simplifyAddress(address: string): string {
+  // Remover apenas CEP no final (00000-000 ou 00000000)
+  let simplified = address.replace(/(-\s*\d{5}-?\d{3}|\s*\d{8})\s*$/g, '');
+  // Remover traços e texto após (complementos) mas manter bairro
+  simplified = simplified.replace(/-\s*[A-Za-z0-9\s]+$/g, '');
+  return simplified.trim();
 }
 
 async function tryGeocodeWithOpenStreetMap(address: string): Promise<{ lat: number; lon: number } | null> {
@@ -35,14 +56,16 @@ async function tryGeocodeWithOpenStreetMap(address: string): Promise<{ lat: numb
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`;
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "RoutingApp/1.0 (contact@example.com)",
+        "User-Agent": "RoteirizadorApp/1.0 (contato@roteirizador.com.br)",
         "Accept-Language": "pt-BR,pt,en",
         "Accept": "application/json",
       },
-      mode: 'cors'
     });
     
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Limite de requisições excedido. Tente novamente em alguns segundos.');
+      }
       throw new Error(`Erro de rede: ${response.status}`);
     }
     
@@ -55,55 +78,9 @@ async function tryGeocodeWithOpenStreetMap(address: string): Promise<{ lat: numb
     }
     return null;
   } catch (error) {
-    console.warn('OpenStreetMap falhou, tentando fallback:', error);
-    return null;
+    console.warn('OpenStreetMap falhou:', error);
+    throw error;
   }
-}
-
-async function tryGeocodeWithFallback(address: string): Promise<{ lat: number; lon: number } | null> {
-  try {
-    // Tentar com serviço alternativo usando Nominatim com parâmetros diferentes
-    const simplifiedAddress = simplifyAddress(address);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simplifiedAddress)}&limit=1&addressdetails=1&countrycodes=br`;
-    
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "RoutingApp/1.0 (contact@example.com)",
-        "Accept-Language": "pt-BR,pt,en",
-        "Accept": "application/json",
-      },
-      mode: 'cors'
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro de rede: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data.length > 0 && data[0].lat && data[0].lon) {
-      return {
-        lat: parseFloat(data[0].lat),
-        lon: parseFloat(data[0].lon),
-      };
-    }
-    return null;
-  } catch (error) {
-    console.warn('Fallback também falhou:', error);
-    return null;
-  }
-}
-
-function simplifyAddress(address: string): string {
-  // Estratégia mais agressiva de simplificação
-  return address
-    .replace(/-\s*\d{5}-?\d{3}/g, '') // Remove CEP
-    .replace(/-\s*[A-Za-z0-9\s]+/g, '') // Remove complementos
-    .replace(/\s*-\s*[A-Za-z0-9\s]+/g, '') // Remove traços e complementos
-    .replace(/\s*,\s*[A-Za-z0-9\s]+$/g, '') // Remove bairro final
-    .replace(/\s*-\s*[A-Za-z0-9\s]+$/g, '') // Remove traços no final
-    .replace(/\s*,\s*Centro$/g, '') // Remove "Centro" do final
-    .replace(/\s*,\s*Cambuí$/g, '') // Remove "Cambuí" do final
-    .trim();
 }
 
 export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -140,7 +117,7 @@ export async function optimizeRoute(addresses: string[]): Promise<string[]> {
           lastError = error as Error;
           if (attempt < 2) {
             // Esperar um pouco antes de tentar novamente
-            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
           }
         }
       }

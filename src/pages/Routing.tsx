@@ -60,6 +60,11 @@ export default function Routing() {
           failedAddresses.push(addresses[i]);
           console.warn(`Falha no endereço ${i + 1}:`, error);
         }
+        
+        // Delay de 1 segundo entre cada geocodificação para respeitar rate limit do Nominatim
+        if (i < addresses.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
       
       setState((s) => ({ ...s, processingProgress: 75 }));
@@ -118,6 +123,11 @@ export default function Routing() {
         } catch (error) {
           newFailedAddresses.push(state.failedAddresses[i]);
           console.warn(`Falha no retry do endereço ${i + 1}:`, error);
+        }
+        
+        // Delay entre tentativas
+        if (i < state.failedAddresses.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
