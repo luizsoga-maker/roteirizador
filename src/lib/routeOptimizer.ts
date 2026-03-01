@@ -14,7 +14,8 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
     { name: 'sem CEP', addr: simplifyAddress(address) },
     { name: 'apenas rua e número', addr: getStreetAndNumber(address) },
     { name: 'cidade e estado', addr: getCityState(address) },
-    { name: 'apenas rua', addr: getStreetOnly(address) }
+    { name: 'apenas rua', addr: getStreetOnly(address) },
+    { name: 'formato alternativo', addr: formatAlternative(address) }
   ];
 
   for (const strategy of strategies) {
@@ -86,6 +87,13 @@ function simplifyAddress(address: string): string {
   }
   
   return simplified.trim();
+}
+
+function formatAlternative(address: string): string {
+  // Formato alternativo: "Rua Doutor Sales de Oliveira, 1400, Campinas - SP"
+  let cleaned = address.replace(/\s*\d{5}-?\d{3}\s*$/, '');
+  cleaned = cleaned.replace(' - ', ', ');
+  return cleaned;
 }
 
 async function tryGeocodeWithOpenStreetMap(address: string): Promise<{ lat: number; lon: number } | null> {
