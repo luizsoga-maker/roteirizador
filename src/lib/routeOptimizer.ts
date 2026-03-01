@@ -12,7 +12,9 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
   const strategies = [
     { name: 'completo', addr: address },
     { name: 'sem CEP', addr: simplifyAddress(address) },
-    { name: 'apenas rua e número', addr: getStreetAndNumber(address) }
+    { name: 'apenas rua e número', addr: getStreetAndNumber(address) },
+    { name: 'cidade e estado', addr: getCityState(address) },
+    { name: 'apenas rua', addr: getStreetOnly(address) }
   ];
 
   for (const strategy of strategies) {
@@ -33,27 +35,62 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
 }
 
 function getStreetAndNumber(address: string): string {
-  // Extrair rua e número (primeira parte até o primeiro número)
-  const match = address.match(/^[^,]*,\s*\d+/);
-  if (match) {
-    return match[0];
+  // Extrair rua e número do formato brasileiro
+  // Ex: "Rua Doutor Sales de Oliveira, 1400 - Vila Industrial - Campinas/SP - 13035-270"
+  // Queremos: "Rua Doutor Sales de Oliveira, 1400, Campinas, SP"
+  
+  // Remover CEP no final
+  let cleaned = address.replace(/\s*\d{5}-?\d{3}\s*$/, '');
+  
+  // Manter apenas a primeira parte antes do primeiro " - " que não seja rua/número
+  const parts = cleaned.split(' - ');
+  if (parts.length >= 3) {
+    // Formato: Rua, Número - Bairro - Cidade/Estado
+    const streetPart = parts[0]; // "Rua Doutor Sales de Oliveira, 1400"
+    const cityState = parts[2]; // "Campinas/SP"
+    const city = cityState.split('/')[0];
+    const state = cityState.split('/')[1] || cityState;
+    return `${streetPart}, ${city}, ${state}`;
   }
-  // Fallback: pegar até o primeiro número
-  const match2 = address.match(/^[^\d]*\d+/);
-  return match2 ? match2[0].trim() : address;
+  
+  return cleaned;
+}
+
+function getCityState(address: string): string {
+  // Extrair apenas cidade e estado
+  const match = address.match(/([A-Za-z\s]+)\/([A-Za-z]{2})\s*$/);
+  if (match) {
+    return `${match[1]}, ${match[2]}`;
+  }
+  return '';
+}
+
+function getStreetOnly(address: string): string {
+  // Extrair apenas nome da rua (sem número)
+  const match = address.match(/^([^,]+),/);
+  if (match) {
+    return match[1].trim();
+  }
+  return address.split(',')[0].trim();
 }
 
 function simplifyAddress(address: string): string {
-  // Remover apenas CEP no final (00000-000 ou 00000000)
-  let simplified = address.replace(/(-\s*\d{5}-?\d{3}|\s*\d{8})\s*$/g, '');
-  // Remover traços e texto após (complementos) mas manter bairro
-  simplified = simplified.replace(/-\s*[A-Za-z0-9\s]+$/g, '');
+  // Remover CEP e bairro, manter rua, número, cidade e estado
+  let simplified = address.replace(/\s*\d{5}-?\d{3}\s*$/, '');
+  
+  // Remover a parte do bairro (segundo " - ")
+  const parts = simplified.split(' - ');
+  if (parts.length >= 3) {
+    // Manter primeira e terceira partes
+    return `${parts[0]}, ${parts[2]}`;
+  }
+  
   return simplified.trim();
 }
 
 async function tryGeocodeWithOpenStreetMap(address: string): Promise<{ lat: number; lon: number } | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`;
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1&countrycodes=br`;
     const response = await fetch(url, {
       headers: {
         "User-Agent": "RoteirizadorApp/1.0 (contato@roteirizador.com.br)",
