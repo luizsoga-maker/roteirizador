@@ -7,7 +7,7 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig(() => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 5173,
   },
   plugins: [
     dyadComponentTagger(),
@@ -66,6 +66,15 @@ export default defineConfig(() => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  // Adicionar esta linha para garantir que o index.html seja servido
+  build: {
+    outDir: "dist",
+    assetsDir: "assets",
+    sourcemap: true,
+    rollupOptions: {
+      input: "index.html",
     },
   },
 }));
