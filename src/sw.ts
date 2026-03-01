@@ -9,7 +9,7 @@ const ASSETS = [
 ];
 
 // Instalação do Service Worker
-self.addEventListener('install', (event: ExtendableEvent) => {
+self.addEventListener('install', (event: any) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(ASSETS))
@@ -17,7 +17,7 @@ self.addEventListener('install', (event: ExtendableEvent) => {
 });
 
 // Ativação do Service Worker
-self.addEventListener('activate', (event: ExtendableEvent) => {
+self.addEventListener('activate', (event: any) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -32,7 +32,7 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
 });
 
 // Intercepta requisições
-self.addEventListener('fetch', (event: FetchEvent) => {
+self.addEventListener('fetch', (event: any) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
