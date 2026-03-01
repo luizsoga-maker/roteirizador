@@ -1,27 +1,64 @@
 "use client";
 
 export async function geocode(address: string): Promise<{ lat: number; lon: number }> {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "RoutingApp/1.0 (contact@example.com)",
-      "Accept-Language": "pt-BR,pt,en",
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Erro de rede: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  if (data.length === 0) {
+  try {
+    // Try with the full address first
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "RoutingApp/1.0 (contact@example.com)",
+        "Accept-Language": "pt-BR,pt,en",
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erro de rede: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    if (data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lon: parseFloat(data[0].lon),
+      };
+    }
+
+    // If full address fails, try with simplified address
+    const simplifiedAddress = simplifyAddress(address);
+    const simplifiedUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simplifiedAddress)}&limit=1&addressdetails=1`;
+    const simplifiedResponse = await fetch(simplifiedUrl, {
+      headers: {
+        "User-Agent": "RoutingApp/1.0 (contact@example.com)",
+        "Accept-Language": "pt-BR,pt,en",
+      },
+    });
+
+    if (!simplifiedResponse.ok) {
+      throw new Error(`Erro de rede: ${simplifiedResponse.status}`);
+    }
+
+    const simplifiedData = await simplifiedResponse.json();
+    if (simplifiedData.length > 0) {
+      return {
+        lat: parseFloat(simplifiedData[0].lat),
+        lon: parseFloat(simplifiedData[0].lon),
+      };
+    }
+
     throw new Error(`Endereço não encontrado: "${address}"`);
+  } catch (error) {
+    throw new Error(`Falha ao geocodificar endereço "${address}": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
   }
-  
-  return {
-    lat: parseFloat(data[0].lat),
-    lon: parseFloat(data[0].lon),
-  };
+}
+
+function simplifyAddress(address: string): string {
+  // Remove CEP, complementos e informações menos relevantes
+  return address
+    .replace(/-\s*\d{5}-?\d{3}/g, '') // Remove CEP
+    .replace(/-\s*[A-Za-z0-9\s]+/g, '') // Remove complementos
+    .replace(/\s*-\s*[A-Za-z0-9\s]+/g, '') // Remove traços e complementos
+    .replace(/\s*,\s*[A-Za-z0-9\s]+$/g, '') // Remove bairro final
+    .trim();
 }
 
 export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {

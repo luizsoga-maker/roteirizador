@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { MapPin, Route, Loader2, Copy, Check, Smartphone } from "lucide-react";
+import { MapPin, Route, Loader2, Copy, Check, Smartphone, RefreshCw } from "lucide-react";
 
 type AddressState = {
   addresses: string;
@@ -14,6 +14,7 @@ type AddressState = {
   error: string | null;
   totalDistance: number | null;
   copied: boolean;
+  failedAddresses: string[];
 };
 
 const initialState: AddressState = {
@@ -23,13 +24,14 @@ const initialState: AddressState = {
   error: null,
   totalDistance: null,
   copied: false,
+  failedAddresses: [],
 };
 
 export default function Routing() {
   const [state, setState] = useState<AddressState>(initialState);
 
   const handleOptimize = async () => {
-    setState((s) => ({ ...s, loading: true, error: null, totalDistance: null }));
+    setState((s) => ({ ...s, loading: true, error: null, totalDistance: null, failedAddresses: [] }));
     try {
       const addresses = state.addresses
         .split("\n")
@@ -38,7 +40,82 @@ export default function Routing() {
       if (addresses.length < 2) throw new Error("Insira pelo menos dois endereços.");
       
       const { optimizeRoute, calculateTotalDistance } = await import("@/lib/routeOptimizer");
+      
+      // Try to geocode each address individually to identify failures
+      const geocodingResults = [];
+      const failedAddresses = [];
+      
+      for (let i = 0; i < addresses.length; i++) {
+        try {
+          const { geocode } = await import("@/lib/routeOptimizer");
+          const coords = await geocode(addresses[i]);
+          geocodingResults.push({ address: addresses[i], success: true, coords });
+        } catch (error) {
+          geocodingResults.push({ address: addresses[i], success: false, error });
+          failedAddresses.push(addresses[i]);
+        }
+      }
+      
+      if (failedAddresses.length > 0) {
+        setState((s) => ({ 
+          ...s, 
+          loading: false, 
+          failedAddresses,
+          error: `${failedAddresses.length} endereços não puderam ser geocodificados. Verifique os formatos.`
+        }));
+        return;
+      }
+      
       const ordered = await optimizeRoute(addresses);
+      const distance = await calculateTotalDistance(ordered);
+      
+      setState((s) => ({ 
+        ...s, 
+        optimizedOrder: ordered, 
+        loading: false, 
+        totalDistance: distance 
+      }));
+      toast.success("Rota otimizada com sucesso!");
+    } catch (err: any) {
+      setState((s) => ({ ...s, loading: false, error: err.message }));
+      toast.error(err.message);
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    if (state.failedAddresses.length === 0) return;
+    
+    setState((s) => ({ ...s, loading: true, error: null, failedAddresses: [] }));
+    
+    try {
+      const { optimizeRoute, calculateTotalDistance } = await import("@/lib/routeOptimizer");
+      
+      // Retry geocoding for failed addresses
+      const geocodingResults = [];
+      const newFailedAddresses = [];
+      
+      for (let i = 0; i < state.failedAddresses.length; i++) {
+        try {
+          const { geocode } = await import("@/lib/routeOptimizer");
+          const coords = await geocode(state.failedAddresses[i]);
+          geocodingResults.push({ address: state.failedAddresses[i], success: true, coords });
+        } catch (error) {
+          geocodingResults.push({ address: state.failedAddresses[i], success: false, error });
+          newFailedAddresses.push(state.failedAddresses[i]);
+        }
+      }
+      
+      if (newFailedAddresses.length > 0) {
+        setState((s) => ({ 
+          ...s, 
+          loading: false, 
+          failedAddresses: newFailedAddresses,
+          error: `${newFailedAddresses.length} endereços ainda não puderam ser geocodificados.`
+        }));
+        return;
+      }
+      
+      const ordered = await optimizeRoute(state.failedAddresses);
       const distance = await calculateTotalDistance(ordered);
       
       setState((s) => ({ 
@@ -198,6 +275,26 @@ Museu de Arte de São Paulo (MASP)`;
               <Card className="border-red-200 bg-red-50">
                 <CardContent className="pt-4 text-red-700">
                   <strong>Erro:</strong> {state.error}
+                  {state.failedAddresses.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium mb-1">Endereços com problemas:</p>
+                      <ul className="text-xs space-y-1">
+                        {state.failedAddresses.map((addr, i) => (
+                          <li key={i} className="bg-red-100 p-1 rounded">• {addr}</li>
+                        ))}
+                      </ul>
+                      <Button
+                        onClick={handleRetryFailed}
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        disabled={state.loading}
+                      >
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
