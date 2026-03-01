@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { MapPin, Route, Loader2, Copy, Check, Smartphone, RefreshCw } from "lucide-react";
+import { OfflineIndicator } from "@/components/offline-indicator";
 
 type AddressState = {
   addresses: string;
@@ -209,6 +210,7 @@ Museu de Arte de São Paulo (MASP)`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8">
+      <OfflineIndicator />
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">

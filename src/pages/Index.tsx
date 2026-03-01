@@ -1,4 +1,5 @@
 import { MadeWithDyad } from "@/components/made-with-dyad";
+import { PWAInstallButton } from "@/components/pwa-install-button";
 import { Route, Smartphone, MapPin, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -91,19 +92,6 @@ const Index = () => {
               Como Funciona
             </a>
           </div>
-          
-          {/* PWA Install Button */}
-          {supportsPWA && deferredPrompt && (
-            <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <button
-                onClick={handleInstall}
-                className="inline-flex items-center justify-center px-6 py-3 bg-green-600 text-white font-semibold rounded-full shadow-lg hover:bg-green-700 transition-all transform hover:scale-105"
-              >
-                <Smartphone className="mr-2 h-5 w-5" />
-                Instalar App
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Features Grid */}
@@ -174,6 +162,7 @@ const Index = () => {
         </div>
       </div>
       <MadeWithDyad />
+      <PWAInstallButton />
     </div>
   );
 };
