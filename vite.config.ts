@@ -19,7 +19,7 @@ export default defineConfig(() => ({
         name: "Roteirizador de Endereços",
         short_name: "Roteirizador",
         description: "Otimize suas rotas de entrega, visitas ou viagens com um clique",
-        start_url: "/roteirizador/",
+        start_url: "/",
         display: "standalone",
         background_color: "#0f172a",
         theme_color: "#3b82f6",
@@ -62,13 +62,11 @@ export default defineConfig(() => ({
       }
     })
   ],
-  base: "/roteirizador/",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // Adicionar esta linha para garantir que o index.html seja servido
   build: {
     outDir: "dist",
     assetsDir: "assets",
