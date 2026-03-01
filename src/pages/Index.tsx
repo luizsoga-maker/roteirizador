@@ -1,7 +1,43 @@
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Route, Smartphone, MapPin, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const Index = () => {
+  const [supportsPWA, setSupportsPWA] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // Verifica se o navegador suporta PWA
+    const isPWA = 'serviceWorker' in navigator && 'manifest' in document;
+    setSupportsPWA(isPWA);
+
+    // Captura o evento de instalação
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstall = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        } else {
+          console.log('User dismissed the install prompt');
+        }
+        setDeferredPrompt(null);
+      });
+    }
+  };
+
   const features = [
     {
       icon: <MapPin className="w-8 h-8" />,
@@ -55,6 +91,19 @@ const Index = () => {
               Como Funciona
             </a>
           </div>
+          
+          {/* PWA Install Button */}
+          {supportsPWA && deferredPrompt && (
+            <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <button
+                onClick={handleInstall}
+                className="inline-flex items-center justify-center px-6 py-3 bg-green-600 text-white font-semibold rounded-full shadow-lg hover:bg-green-700 transition-all transform hover:scale-105"
+              >
+                <Smartphone className="mr-2 h-5 w-5" />
+                Instalar App
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Features Grid */}
