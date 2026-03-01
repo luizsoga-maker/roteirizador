@@ -1,14 +1,45 @@
 "use client";
 
+// Cache para evitar requisições repetidas
+const geocodeCache = new Map<string, { lat: number; lon: number }>();
+
 export async function geocode(address: string): Promise<{ lat: number; lon: number }> {
+  // Verificar cache primeiro
+  if (geocodeCache.has(address)) {
+    return geocodeCache.get(address)!;
+  }
+
   try {
-    // Try with the full address first
+    // Tentar com OpenStreetMap primeiro
+    const result = await tryGeocodeWithOpenStreetMap(address);
+    if (result) {
+      geocodeCache.set(address, result);
+      return result;
+    }
+
+    // Se falhar, tentar com serviço alternativo
+    const fallbackResult = await tryGeocodeWithFallback(address);
+    if (fallbackResult) {
+      geocodeCache.set(address, fallbackResult);
+      return fallbackResult;
+    }
+
+    throw new Error(`Não foi possível encontrar o endereço: "${address}"`);
+  } catch (error) {
+    throw new Error(`Falha ao geocodificar endereço "${address}": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+  }
+}
+
+async function tryGeocodeWithOpenStreetMap(address: string): Promise<{ lat: number; lon: number } | null> {
+  try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`;
     const response = await fetch(url, {
       headers: {
         "User-Agent": "RoutingApp/1.0 (contact@example.com)",
         "Accept-Language": "pt-BR,pt,en",
+        "Accept": "application/json",
       },
+      mode: 'cors'
     });
     
     if (!response.ok) {
@@ -16,48 +47,62 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
     }
     
     const data = await response.json();
-    if (data.length > 0) {
+    if (data.length > 0 && data[0].lat && data[0].lon) {
       return {
         lat: parseFloat(data[0].lat),
         lon: parseFloat(data[0].lon),
       };
     }
+    return null;
+  } catch (error) {
+    console.warn('OpenStreetMap falhou, tentando fallback:', error);
+    return null;
+  }
+}
 
-    // If full address fails, try with simplified address
+async function tryGeocodeWithFallback(address: string): Promise<{ lat: number; lon: number } | null> {
+  try {
+    // Tentar com serviço alternativo usando Nominatim com parâmetros diferentes
     const simplifiedAddress = simplifyAddress(address);
-    const simplifiedUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simplifiedAddress)}&limit=1&addressdetails=1`;
-    const simplifiedResponse = await fetch(simplifiedUrl, {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simplifiedAddress)}&limit=1&addressdetails=1&countrycodes=br`;
+    
+    const response = await fetch(url, {
       headers: {
         "User-Agent": "RoutingApp/1.0 (contact@example.com)",
         "Accept-Language": "pt-BR,pt,en",
+        "Accept": "application/json",
       },
+      mode: 'cors'
     });
 
-    if (!simplifiedResponse.ok) {
-      throw new Error(`Erro de rede: ${simplifiedResponse.status}`);
+    if (!response.ok) {
+      throw new Error(`Erro de rede: ${response.status}`);
     }
 
-    const simplifiedData = await simplifiedResponse.json();
-    if (simplifiedData.length > 0) {
+    const data = await response.json();
+    if (data.length > 0 && data[0].lat && data[0].lon) {
       return {
-        lat: parseFloat(simplifiedData[0].lat),
-        lon: parseFloat(simplifiedData[0].lon),
+        lat: parseFloat(data[0].lat),
+        lon: parseFloat(data[0].lon),
       };
     }
-
-    throw new Error(`Endereço não encontrado: "${address}"`);
+    return null;
   } catch (error) {
-    throw new Error(`Falha ao geocodificar endereço "${address}": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    console.warn('Fallback também falhou:', error);
+    return null;
   }
 }
 
 function simplifyAddress(address: string): string {
-  // Remove CEP, complementos e informações menos relevantes
+  // Estratégia mais agressiva de simplificação
   return address
     .replace(/-\s*\d{5}-?\d{3}/g, '') // Remove CEP
     .replace(/-\s*[A-Za-z0-9\s]+/g, '') // Remove complementos
     .replace(/\s*-\s*[A-Za-z0-9\s]+/g, '') // Remove traços e complementos
     .replace(/\s*,\s*[A-Za-z0-9\s]+$/g, '') // Remove bairro final
+    .replace(/\s*-\s*[A-Za-z0-9\s]+$/g, '') // Remove traços no final
+    .replace(/\s*,\s*Centro$/g, '') // Remove "Centro" do final
+    .replace(/\s*,\s*Cambuí$/g, '') // Remove "Cambuí" do final
     .trim();
 }
 
@@ -81,15 +126,26 @@ export function haversine(lat1: number, lon1: number, lat2: number, lon2: number
 export async function optimizeRoute(addresses: string[]): Promise<string[]> {
   if (addresses.length === 0) return [];
   
-  // Geocode all addresses with rate limiting
+  // Geocode all addresses with retry logic
   const locations = await Promise.all(
     addresses.map(async (addr, index) => {
-      try {
-        const coords = await geocode(addr);
-        return { addr, ...coords, index };
-      } catch (err) {
-        throw new Error(`Falha no endereço ${index + 1} (${addr}): ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      let lastError: Error | null = null;
+      
+      // Tentar até 3 vezes para cada endereço
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const coords = await geocode(addr);
+          return { addr, ...coords, index };
+        } catch (error) {
+          lastError = error as Error;
+          if (attempt < 2) {
+            // Esperar um pouco antes de tentar novamente
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          }
+        }
       }
+      
+      throw new Error(`Falha no endereço ${index + 1} (${addr}): ${lastError?.message || 'Erro desconhecido'}`);
     })
   );
 

@@ -15,6 +15,7 @@ type AddressState = {
   totalDistance: number | null;
   copied: boolean;
   failedAddresses: string[];
+  processingProgress: number;
 };
 
 const initialState: AddressState = {
@@ -25,13 +26,14 @@ const initialState: AddressState = {
   totalDistance: null,
   copied: false,
   failedAddresses: [],
+  processingProgress: 0,
 };
 
 export default function Routing() {
   const [state, setState] = useState<AddressState>(initialState);
 
   const handleOptimize = async () => {
-    setState((s) => ({ ...s, loading: true, error: null, totalDistance: null, failedAddresses: [] }));
+    setState((s) => ({ ...s, loading: true, error: null, totalDistance: null, failedAddresses: [], processingProgress: 0 }));
     try {
       const addresses = state.addresses
         .split("\n")
@@ -41,43 +43,53 @@ export default function Routing() {
       
       const { optimizeRoute, calculateTotalDistance } = await import("@/lib/routeOptimizer");
       
-      // Try to geocode each address individually to identify failures
-      const geocodingResults = [];
-      const failedAddresses = [];
+      // Process addresses one by one to show progress
+      const processedAddresses: string[] = [];
+      const failedAddresses: string[] = [];
       
       for (let i = 0; i < addresses.length; i++) {
+        const progress = ((i + 1) / addresses.length) * 50; // 50% for geocoding, 50% for optimization
+        setState((s) => ({ ...s, processingProgress: Math.round(progress) }));
+        
         try {
           const { geocode } = await import("@/lib/routeOptimizer");
-          const coords = await geocode(addresses[i]);
-          geocodingResults.push({ address: addresses[i], success: true, coords });
+          await geocode(addresses[i]);
+          processedAddresses.push(addresses[i]);
         } catch (error) {
-          geocodingResults.push({ address: addresses[i], success: false, error });
           failedAddresses.push(addresses[i]);
+          console.warn(`Falha no endereço ${i + 1}:`, error);
         }
       }
+      
+      setState((s) => ({ ...s, processingProgress: 75 }));
       
       if (failedAddresses.length > 0) {
         setState((s) => ({ 
           ...s, 
           loading: false, 
           failedAddresses,
-          error: `${failedAddresses.length} endereços não puderam ser geocodificados. Verifique os formatos.`
+          error: `${failedAddresses.length} endereços não puderam ser geocodificados. Verifique os formatos.`,
+          processingProgress: 0
         }));
         return;
       }
       
-      const ordered = await optimizeRoute(addresses);
+      const ordered = await optimizeRoute(processedAddresses);
       const distance = await calculateTotalDistance(ordered);
       
       setState((s) => ({ 
         ...s, 
         optimizedOrder: ordered, 
         loading: false, 
-        totalDistance: distance 
+        totalDistance: distance,
+        processingProgress: 100
       }));
       toast.success("Rota otimizada com sucesso!");
+      
+      // Reset progress after a short delay
+      setTimeout(() => setState((s) => ({ ...s, processingProgress: 0 })), 1000);
     } catch (err: any) {
-      setState((s) => ({ ...s, loading: false, error: err.message }));
+      setState((s) => ({ ...s, loading: false, error: err.message, processingProgress: 0 }));
       toast.error(err.message);
     }
   };
@@ -85,23 +97,26 @@ export default function Routing() {
   const handleRetryFailed = async () => {
     if (state.failedAddresses.length === 0) return;
     
-    setState((s) => ({ ...s, loading: true, error: null, failedAddresses: [] }));
+    setState((s) => ({ ...s, loading: true, error: null, failedAddresses: [], processingProgress: 0 }));
     
     try {
       const { optimizeRoute, calculateTotalDistance } = await import("@/lib/routeOptimizer");
       
       // Retry geocoding for failed addresses
-      const geocodingResults = [];
-      const newFailedAddresses = [];
+      const processedAddresses: string[] = [];
+      const newFailedAddresses: string[] = [];
       
       for (let i = 0; i < state.failedAddresses.length; i++) {
+        const progress = 50 + ((i + 1) / state.failedAddresses.length) * 50;
+        setState((s) => ({ ...s, processingProgress: Math.round(progress) }));
+        
         try {
           const { geocode } = await import("@/lib/routeOptimizer");
-          const coords = await geocode(state.failedAddresses[i]);
-          geocodingResults.push({ address: state.failedAddresses[i], success: true, coords });
+          await geocode(state.failedAddresses[i]);
+          processedAddresses.push(state.failedAddresses[i]);
         } catch (error) {
-          geocodingResults.push({ address: state.failedAddresses[i], success: false, error });
           newFailedAddresses.push(state.failedAddresses[i]);
+          console.warn(`Falha no retry do endereço ${i + 1}:`, error);
         }
       }
       
@@ -110,23 +125,27 @@ export default function Routing() {
           ...s, 
           loading: false, 
           failedAddresses: newFailedAddresses,
-          error: `${newFailedAddresses.length} endereços ainda não puderam ser geocodificados.`
+          error: `${newFailedAddresses.length} endereços ainda não puderam ser geocodificados.`,
+          processingProgress: 0
         }));
         return;
       }
       
-      const ordered = await optimizeRoute(state.failedAddresses);
+      const ordered = await optimizeRoute(processedAddresses);
       const distance = await calculateTotalDistance(ordered);
       
       setState((s) => ({ 
         ...s, 
         optimizedOrder: ordered, 
         loading: false, 
-        totalDistance: distance 
+        totalDistance: distance,
+        processingProgress: 100
       }));
       toast.success("Rota otimizada com sucesso!");
+      
+      setTimeout(() => setState((s) => ({ ...s, processingProgress: 0 })), 1000);
     } catch (err: any) {
-      setState((s) => ({ ...s, loading: false, error: err.message }));
+      setState((s) => ({ ...s, loading: false, error: err.message, processingProgress: 0 }));
       toast.error(err.message);
     }
   };
@@ -252,6 +271,21 @@ Museu de Arte de São Paulo (MASP)`;
                 </span>
               )}
             </div>
+
+            {state.processingProgress > 0 && state.processingProgress < 100 && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Processando...</span>
+                  <span>{state.processingProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${state.processingProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
 
             <Button
               onClick={handleOptimize}
