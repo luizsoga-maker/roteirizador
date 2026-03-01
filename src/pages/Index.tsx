@@ -1,5 +1,3 @@
-// Update this page (the content is just a fallback if you fail to update the page)
-
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Index = () => {
@@ -10,6 +8,12 @@ const Index = () => {
         <p className="text-xl text-gray-600">
           Start building your amazing project here!
         </p>
+        <a
+          href="/route"
+          className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Roteirização de Endereços
+        </a>
       </div>
       <MadeWithDyad />
     </div>
