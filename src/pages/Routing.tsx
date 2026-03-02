@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,8 @@ import {
   Route, Loader2, Copy, Check, 
   Smartphone, Trash2, Map as MapIcon, 
   Navigation, AlertCircle, Printer, RotateCcw,
-  MessageCircle, Share2, ArrowLeft, MapPin
+  MessageCircle, Share2, ArrowLeft, MapPin,
+  RefreshCw
 } from "lucide-react";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { optimizeRoute, calculateTotalDistance, Location } from "@/lib/routeOptimizer";
@@ -24,6 +25,7 @@ export default function Routing() {
   const [destinations, setDestinations] = useState("");
   const [startLocation, setStartLocation] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [returnToStart, setReturnToStart] = useState(false);
   const [optimizedLocations, setOptimizedLocations] = useState<Location[]>([]);
   const [failedAddresses, setFailedAddresses] = useState<string[]>([]);
@@ -33,41 +35,77 @@ export default function Routing() {
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
 
+  const handleFetchLocation = useCallback((highAccuracy = true) => {
+    if (!navigator.geolocation) {
+      const msg = "Seu navegador não suporta geolocalização.";
+      setLocationError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError(null);
+
+    const options = {
+      enableHighAccuracy: highAccuracy,
+      timeout: highAccuracy ? 10000 : 15000,
+      maximumAge: 30000
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+        setStartLocation(coords);
+        setIsLocating(false);
+        setLocationError(null);
+        toast.success("Localização obtida com sucesso!");
+      },
+      (error) => {
+        console.error("Erro de localização:", error);
+        
+        // Se falhou com alta precisão, tenta a precisão normal antes de desistir
+        if (highAccuracy) {
+          console.log("Tentando novamente com precisão reduzida...");
+          handleFetchLocation(false);
+          return;
+        }
+
+        setIsLocating(false);
+        let errorMsg = "Erro desconhecido ao obter localização.";
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = "Permissão negada. Por favor, autorize o acesso à localização nas configurações do seu navegador/celular.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = "Informações de localização indisponíveis. Verifique se o GPS está ligado.";
+            break;
+          case error.TIMEOUT:
+            errorMsg = "Tempo esgotado ao tentar obter localização. Tente novamente em um local com melhor sinal.";
+            break;
+        }
+        
+        setLocationError(errorMsg);
+        toast.error(errorMsg);
+      },
+      options
+    );
+  }, []);
+
   // Tenta obter a localização ao carregar a página
   useEffect(() => {
-    handleFetchLocation();
+    handleFetchLocation(true);
     
     const savedDestinations = localStorage.getItem("roteirizador_destinations");
     if (savedDestinations) setDestinations(savedDestinations);
     
     const savedHistory = localStorage.getItem("roteirizador_history");
     if (savedHistory) setHistory(JSON.parse(savedHistory));
-  }, []);
+  }, [handleFetchLocation]);
 
   useEffect(() => {
     localStorage.setItem("roteirizador_destinations", destinations);
   }, [destinations]);
-
-  const handleFetchLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocalização não suportada.");
-      return;
-    }
-
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setStartLocation(`${pos.coords.latitude}, ${pos.coords.longitude}`);
-        setIsLocating(false);
-      },
-      (error) => {
-        console.error(error);
-        setIsLocating(false);
-        toast.error("Não foi possível obter sua localização atual.");
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-    );
-  };
 
   const saveToHistory = (destList: string) => {
     const newItem = {
@@ -85,7 +123,7 @@ export default function Routing() {
   const handleOptimize = async () => {
     if (!startLocation) {
       toast.error("Aguardando sua localização atual para iniciar a rota.");
-      handleFetchLocation();
+      handleFetchLocation(true);
       return;
     }
 
@@ -95,7 +133,6 @@ export default function Routing() {
       return;
     }
 
-    // Sempre coloca a localização atual como o primeiro item da lista
     const fullList = [startLocation, ...list];
 
     setLoading(true);
@@ -182,26 +219,26 @@ export default function Routing() {
               {/* Ponto de Partida Fixo */}
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ponto de Partida</Label>
-                <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                  <div className={`p-2 rounded-xl ${isLocating ? 'bg-blue-100 animate-pulse' : 'bg-blue-600'}`}>
+                <div className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${locationError ? 'bg-red-50 border-red-100' : 'bg-blue-50/50 border-blue-100/50'}`}>
+                  <div className={`p-2 rounded-xl ${isLocating ? 'bg-blue-100 animate-pulse' : locationError ? 'bg-red-500' : 'bg-blue-600'}`}>
                     <MapPin className={`w-4 h-4 ${isLocating ? 'text-blue-600' : 'text-white'}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-700">
+                    <p className={`text-sm font-bold ${locationError ? 'text-red-700' : 'text-slate-700'}`}>
                       {isLocating ? "Obtendo localização..." : startLocation ? "Sua Localização Atual" : "Localização não disponível"}
                     </p>
-                    <p className="text-[10px] text-slate-500 truncate">
-                      {startLocation || "Clique no botão ao lado para tentar novamente"}
+                    <p className={`text-[10px] truncate ${locationError ? 'text-red-500' : 'text-slate-500'}`}>
+                      {locationError || startLocation || "Clique no botão ao lado para tentar novamente"}
                     </p>
                   </div>
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={handleFetchLocation}
+                    onClick={() => handleFetchLocation(true)}
                     disabled={isLocating}
-                    className="rounded-full hover:bg-blue-100 text-blue-600"
+                    className={`rounded-full ${locationError ? 'hover:bg-red-100 text-red-600' : 'hover:bg-blue-100 text-blue-600'}`}
                   >
-                    <Navigation className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
                   </Button>
                 </div>
               </div>
