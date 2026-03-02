@@ -68,7 +68,6 @@ export default function Routing() {
     setFailedAddresses([]);
 
     try {
-      // Passamos explicitamente o estado returnToStart para a função de otimização
       const result = await optimizeRoute(list, returnToStart, (p) => setProgress(p));
       setOptimizedLocations(result.locations);
       setFailedAddresses(result.failed);
@@ -95,23 +94,45 @@ export default function Routing() {
       return;
     }
 
-    toast.info("Obtendo sua localização...");
+    const toastId = toast.loading("Obtendo sua localização precisa...");
     
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 15000, // Aumentado para 15s para mobile
+      maximumAge: 60000 // Aceita localização de até 1 minuto atrás para rapidez
+    };
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const loc = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-        // Adiciona no topo da lista
         setAddresses(prev => {
           const currentList = prev.split("\n").filter(Boolean);
+          // Evita duplicar se a localização já for a primeira linha
+          if (currentList[0] === loc) return prev;
           return [loc, ...currentList].join("\n");
         });
-        toast.success("Localização atual adicionada como ponto de partida!");
+        toast.dismiss(toastId);
+        toast.success("Localização adicionada como ponto de partida!");
       },
       (error) => {
-        console.error(error);
-        toast.error("Não foi possível obter sua localização. Verifique as permissões.");
+        toast.dismiss(toastId);
+        console.error("Erro de geolocalização:", error);
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error("Permissão negada. Ative a localização no seu navegador/celular.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error("Sinal de GPS indisponível no momento.");
+            break;
+          case error.TIMEOUT:
+            toast.error("Tempo esgotado. Tente novamente em um local mais aberto.");
+            break;
+          default:
+            toast.error("Erro ao obter localização.");
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      options
     );
   };
 
