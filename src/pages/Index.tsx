@@ -21,7 +21,7 @@ const Index = () => {
       icon: <Smartphone className="w-8 h-8" />,
       title: "Foco em Mobilidade",
       description: "Interface otimizada para uso em movimento, com botões grandes e navegação intuitiva.",
-      image: "https://images.unsplash.com/photo-1512428559083-a40ce12b495b?auto=format&fit=crop&q=80&w=800"
+      image: "https://images.unsplash.com/photo-1556656793-062ff9878258?auto=format&fit=crop&q=80&w=800"
     }
   ];
 
