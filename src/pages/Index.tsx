@@ -113,7 +113,7 @@ const Index = () => {
                 {feature.description}
               </p>
             </div>
-          })}
+          ))}
         </div>
 
         {/* How it works */}
