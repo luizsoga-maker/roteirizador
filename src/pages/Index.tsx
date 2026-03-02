@@ -2,6 +2,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { PWAInstallButton } from "@/components/pwa-install-button";
 import { Route, Smartphone, MapPin, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+import Logo from "@/components/Logo";
 
 const Index = () => {
   const [supportsPWA, setSupportsPWA] = useState(false);
@@ -73,6 +74,7 @@ const Index = () => {
               Endereços
             </span>
           </h1>
+          <Logo className="mx-auto d-block w-24 h-24 mb-4" />
           <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8 leading-relaxed">
             Otimize suas rotas de entrega, visitas ou viagens com um clique. 
             Basta inserir seus endereços e exportar para o Google Maps ou Apple Maps.
@@ -111,7 +113,7 @@ const Index = () => {
                 {feature.description}
               </p>
             </div>
-          ))}
+          })}
         </div>
 
         {/* How it works */}
