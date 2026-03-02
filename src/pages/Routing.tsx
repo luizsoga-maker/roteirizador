@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ import {
   Smartphone, Trash2, Map as MapIcon, 
   Navigation, AlertCircle, Printer, RotateCcw,
   MessageCircle, Share2, ArrowLeft, MapPin,
-  RefreshCw, Edit3
+  RefreshCw, Edit3, ListOrdered
 } from "lucide-react";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { optimizeRoute, calculateTotalDistance, Location } from "@/lib/routeOptimizer";
@@ -38,6 +38,18 @@ export default function Routing() {
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
 
+  // Processa a string de destinos para identificar endereços individuais
+  const processedDestinations = useMemo(() => {
+    if (!destinations.trim()) return [];
+    
+    // Divide por quebra de linha, ponto e vírgula ou ponto final seguido de espaço
+    // Também remove numerações comuns no início da linha (ex: "1. ", "2- ", "(3) ")
+    return destinations
+      .split(/\n|;|(?<=\D)\.(?=\s|$)/) 
+      .map(addr => addr.replace(/^\s*[\d\(\)\-\.\s]+/, '').trim())
+      .filter(addr => addr.length > 5); // Filtra entradas muito curtas que provavelmente não são endereços
+  }, [destinations]);
+
   const handleFetchLocation = useCallback((highAccuracy = true) => {
     if (!navigator.geolocation) {
       const msg = "Seu navegador não suporta geolocalização.";
@@ -50,7 +62,7 @@ export default function Routing() {
 
     const options = {
       enableHighAccuracy: highAccuracy,
-      timeout: 20000, // Aumentado para 20s para dar tempo ao GPS mobile
+      timeout: 20000,
       maximumAge: 60000
     };
 
@@ -66,21 +78,17 @@ export default function Routing() {
       },
       (error) => {
         console.error("Erro de localização:", error);
-        
         if (highAccuracy) {
           handleFetchLocation(false);
           return;
         }
-
         setIsLocating(false);
         let errorMsg = "Não conseguimos detectar sua posição automaticamente.";
-        
         if (error.code === error.PERMISSION_DENIED) {
           errorMsg = "Acesso à localização negado. Por favor, autorize nas configurações.";
         }
-        
         setLocationError(errorMsg);
-        setIsEditingStart(true); // Abre o campo manual se o GPS falhar
+        setIsEditingStart(true);
       },
       options
     );
@@ -88,10 +96,8 @@ export default function Routing() {
 
   useEffect(() => {
     handleFetchLocation(true);
-    
     const savedDestinations = localStorage.getItem("roteirizador_destinations");
     if (savedDestinations) setDestinations(savedDestinations);
-    
     const savedHistory = localStorage.getItem("roteirizador_history");
     if (savedHistory) setHistory(JSON.parse(savedHistory));
   }, [handleFetchLocation]);
@@ -105,7 +111,7 @@ export default function Routing() {
       id: Date.now().toString(),
       date: new Date().toLocaleString('pt-BR'),
       addresses: destList,
-      count: destList.split("\n").filter(Boolean).length
+      count: processedDestinations.length
     };
     const newHistory = history.filter(h => h.addresses !== destList).slice(0, 9);
     const updatedHistory = [newItem, ...newHistory];
@@ -122,13 +128,12 @@ export default function Routing() {
       return;
     }
 
-    const list = destinations.split("\n").map(a => a.trim()).filter(Boolean);
-    if (list.length < 1) {
-      toast.error("Insira pelo menos um destino.");
+    if (processedDestinations.length < 1) {
+      toast.error("Insira pelo menos um destino válido.");
       return;
     }
 
-    const fullList = [finalStart, ...list];
+    const fullList = [finalStart, ...processedDestinations];
 
     setLoading(true);
     setProgress(0);
@@ -263,12 +268,19 @@ export default function Routing() {
 
               {/* Destinos */}
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Destinos (Paradas)</Label>
+                <div className="flex justify-between items-center">
+                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Destinos (Paradas)</Label>
+                  {processedDestinations.length > 0 && (
+                    <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full animate-in zoom-in">
+                      {processedDestinations.length} {processedDestinations.length === 1 ? 'ENDEREÇO' : 'ENDEREÇOS'} DETECTADOS
+                    </span>
+                  )}
+                </div>
                 <div className="relative group">
                   <Textarea
                     value={destinations}
                     onChange={(e) => setDestinations(e.target.value)}
-                    placeholder="Cole a lista de endereços aqui..."
+                    placeholder="Cole sua lista aqui (um por linha, ou separados por vírgula/ponto)"
                     className="min-h-[200px] font-mono text-sm resize-none focus-visible:ring-blue-500 border-slate-100 bg-slate-50/50 group-hover:bg-white transition-all rounded-2xl"
                   />
                   {loading && (
@@ -283,6 +295,9 @@ export default function Routing() {
                     </div>
                   )}
                 </div>
+                <p className="text-[10px] text-slate-400 italic px-1">
+                  Dica: Você pode colar endereços do Excel, WhatsApp ou Bloco de Notas.
+                </p>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
@@ -300,7 +315,7 @@ export default function Routing() {
 
               <Button 
                 onClick={handleOptimize} 
-                disabled={loading || !destinations.trim() || isLocating} 
+                disabled={loading || processedDestinations.length === 0 || isLocating} 
                 className="w-full bg-blue-600 hover:bg-blue-700 h-14 text-lg font-bold shadow-lg shadow-blue-200/50 transition-all active:scale-[0.98] rounded-2xl"
               >
                 {loading ? "Calculando..." : "Gerar Rota Otimizada"}
