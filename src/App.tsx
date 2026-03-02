@@ -18,10 +18,12 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <Logo /> {/* Render the Logo component here */}
+        </div>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/route" element={<Routing />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
