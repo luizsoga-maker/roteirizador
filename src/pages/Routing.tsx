@@ -11,7 +11,7 @@ import {
   Route, Loader2, Copy, Check, 
   Smartphone, Trash2, Map as MapIcon, 
   Navigation, AlertCircle, Printer, RotateCcw,
-  MessageCircle, Share2, ArrowLeft
+  MessageCircle, Share2, ArrowLeft, MapPin
 } from "lucide-react";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { optimizeRoute, calculateTotalDistance, Location } from "@/lib/routeOptimizer";
@@ -21,7 +21,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Logo from "@/components/Logo";
 
 export default function Routing() {
-  const [addresses, setAddresses] = useState("");
+  const [destinations, setDestinations] = useState("");
+  const [startLocation, setStartLocation] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
   const [returnToStart, setReturnToStart] = useState(false);
   const [optimizedLocations, setOptimizedLocations] = useState<Location[]>([]);
   const [failedAddresses, setFailedAddresses] = useState<string[]>([]);
@@ -31,49 +33,82 @@ export default function Routing() {
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
 
+  // Tenta obter a localização ao carregar a página
   useEffect(() => {
-    const saved = localStorage.getItem("roteirizador_addresses");
-    if (saved) setAddresses(saved);
+    handleFetchLocation();
+    
+    const savedDestinations = localStorage.getItem("roteirizador_destinations");
+    if (savedDestinations) setDestinations(savedDestinations);
     
     const savedHistory = localStorage.getItem("roteirizador_history");
     if (savedHistory) setHistory(JSON.parse(savedHistory));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("roteirizador_addresses", addresses);
-  }, [addresses]);
+    localStorage.setItem("roteirizador_destinations", destinations);
+  }, [destinations]);
 
-  const saveToHistory = (addrList: string) => {
+  const handleFetchLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocalização não suportada.");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setStartLocation(`${pos.coords.latitude}, ${pos.coords.longitude}`);
+        setIsLocating(false);
+      },
+      (error) => {
+        console.error(error);
+        setIsLocating(false);
+        toast.error("Não foi possível obter sua localização atual.");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+  };
+
+  const saveToHistory = (destList: string) => {
     const newItem = {
       id: Date.now().toString(),
       date: new Date().toLocaleString('pt-BR'),
-      addresses: addrList,
-      count: addrList.split("\n").filter(Boolean).length
+      addresses: destList,
+      count: destList.split("\n").filter(Boolean).length
     };
-    const newHistory = history.filter(h => h.addresses !== addrList).slice(0, 9);
+    const newHistory = history.filter(h => h.addresses !== destList).slice(0, 9);
     const updatedHistory = [newItem, ...newHistory];
     setHistory(updatedHistory);
     localStorage.setItem("roteirizador_history", JSON.stringify(updatedHistory));
   };
 
   const handleOptimize = async () => {
-    const list = addresses.split("\n").map(a => a.trim()).filter(Boolean);
-    if (list.length < 2) {
-      toast.error("Insira pelo menos dois endereços.");
+    if (!startLocation) {
+      toast.error("Aguardando sua localização atual para iniciar a rota.");
+      handleFetchLocation();
       return;
     }
+
+    const list = destinations.split("\n").map(a => a.trim()).filter(Boolean);
+    if (list.length < 1) {
+      toast.error("Insira pelo menos um destino.");
+      return;
+    }
+
+    // Sempre coloca a localização atual como o primeiro item da lista
+    const fullList = [startLocation, ...list];
 
     setLoading(true);
     setProgress(0);
     setFailedAddresses([]);
 
     try {
-      const result = await optimizeRoute(list, returnToStart, (p) => setProgress(p));
+      const result = await optimizeRoute(fullList, returnToStart, (p) => setProgress(p));
       setOptimizedLocations(result.locations);
       setFailedAddresses(result.failed);
       setTotalDistance(calculateTotalDistance(result.locations));
       
-      if (result.locations.length > 0) saveToHistory(addresses);
+      if (result.locations.length > 0) saveToHistory(destinations);
 
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} endereço(s) não encontrados.`);
@@ -86,54 +121,6 @@ export default function Routing() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleUseMyLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocalização não suportada pelo seu navegador.");
-      return;
-    }
-
-    const toastId = toast.loading("Obtendo sua localização precisa...");
-    
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 15000, // Aumentado para 15s para mobile
-      maximumAge: 60000 // Aceita localização de até 1 minuto atrás para rapidez
-    };
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-        setAddresses(prev => {
-          const currentList = prev.split("\n").filter(Boolean);
-          // Evita duplicar se a localização já for a primeira linha
-          if (currentList[0] === loc) return prev;
-          return [loc, ...currentList].join("\n");
-        });
-        toast.dismiss(toastId);
-        toast.success("Localização adicionada como ponto de partida!");
-      },
-      (error) => {
-        toast.dismiss(toastId);
-        console.error("Erro de geolocalização:", error);
-        
-        switch(error.code) {
-          case error.PERMISSION_DENIED:
-            toast.error("Permissão negada. Ative a localização no seu navegador/celular.");
-            break;
-          case error.POSITION_UNAVAILABLE:
-            toast.error("Sinal de GPS indisponível no momento.");
-            break;
-          case error.TIMEOUT:
-            toast.error("Tempo esgotado. Tente novamente em um local mais aberto.");
-            break;
-          default:
-            toast.error("Erro ao obter localização.");
-        }
-      },
-      options
-    );
   };
 
   const handleExport = (type: 'google' | 'apple' | 'whatsapp') => {
@@ -176,7 +163,7 @@ export default function Routing() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setAddresses("")} className="text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full">
+            <Button variant="ghost" size="sm" onClick={() => setDestinations("")} className="text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full">
               <Trash2 className="w-4 h-4 mr-2" /> <span className="hidden sm:inline">Limpar</span>
             </Button>
           </div>
@@ -189,42 +176,68 @@ export default function Routing() {
           <Card className="border-none shadow-sm overflow-hidden rounded-3xl">
             <div className="h-1.5 bg-blue-600" />
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-bold flex items-center justify-between">
-                <span>Destinos</span>
-                <Button variant="outline" size="sm" onClick={handleUseMyLocation} className="h-8 text-xs border-blue-100 text-blue-600 hover:bg-blue-50 rounded-full">
-                  <Navigation className="w-3 h-3 mr-1" /> Minha Posição
-                </Button>
-              </CardTitle>
+              <CardTitle className="text-lg font-bold">Configurar Rota</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative group">
-                <Textarea
-                  value={addresses}
-                  onChange={(e) => setAddresses(e.target.value)}
-                  placeholder="Cole sua lista de endereços aqui..."
-                  className="min-h-[280px] font-mono text-sm resize-none focus-visible:ring-blue-500 border-slate-100 bg-slate-50/50 group-hover:bg-white transition-all rounded-2xl"
-                />
-                {loading && (
-                  <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-2xl z-10">
-                    <div className="relative">
-                      <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-                      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-blue-600">
-                        {progress}%
-                      </div>
-                    </div>
-                    <span className="text-sm font-semibold text-slate-700 mt-3">Otimizando sua rota...</span>
+            <CardContent className="space-y-6">
+              {/* Ponto de Partida Fixo */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ponto de Partida</Label>
+                <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                  <div className={`p-2 rounded-xl ${isLocating ? 'bg-blue-100 animate-pulse' : 'bg-blue-600'}`}>
+                    <MapPin className={`w-4 h-4 ${isLocating ? 'text-blue-600' : 'text-white'}`} />
                   </div>
-                )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-700">
+                      {isLocating ? "Obtendo localização..." : startLocation ? "Sua Localização Atual" : "Localização não disponível"}
+                    </p>
+                    <p className="text-[10px] text-slate-500 truncate">
+                      {startLocation || "Clique no botão ao lado para tentar novamente"}
+                    </p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={handleFetchLocation}
+                    disabled={isLocating}
+                    className="rounded-full hover:bg-blue-100 text-blue-600"
+                  >
+                    <Navigation className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-blue-50/30 rounded-2xl border border-blue-50/50">
+              {/* Destinos */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Destinos (Paradas)</Label>
+                <div className="relative group">
+                  <Textarea
+                    value={destinations}
+                    onChange={(e) => setDestinations(e.target.value)}
+                    placeholder="Cole a lista de endereços aqui..."
+                    className="min-h-[200px] font-mono text-sm resize-none focus-visible:ring-blue-500 border-slate-100 bg-slate-50/50 group-hover:bg-white transition-all rounded-2xl"
+                  />
+                  {loading && (
+                    <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-2xl z-10">
+                      <div className="relative">
+                        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                        <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-blue-600">
+                          {progress}%
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-700 mt-3">Otimizando sua rota...</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100/50 rounded-xl">
-                    <RotateCcw className="w-4 h-4 text-blue-600" />
+                  <div className="p-2 bg-white rounded-xl shadow-sm">
+                    <RotateCcw className="w-4 h-4 text-slate-600" />
                   </div>
                   <div>
                     <Label htmlFor="return-start" className="text-sm font-bold text-slate-700 cursor-pointer">Viagem de Ida e Volta</Label>
-                    <p className="text-[11px] text-slate-500">Retornar ao ponto de partida</p>
+                    <p className="text-[11px] text-slate-500">Retornar à sua localização</p>
                   </div>
                 </div>
                 <Switch id="return-start" checked={returnToStart} onCheckedChange={setReturnToStart} />
@@ -232,7 +245,7 @@ export default function Routing() {
 
               <Button 
                 onClick={handleOptimize} 
-                disabled={loading || !addresses.trim()} 
+                disabled={loading || !destinations.trim() || isLocating} 
                 className="w-full bg-blue-600 hover:bg-blue-700 h-14 text-lg font-bold shadow-lg shadow-blue-200/50 transition-all active:scale-[0.98] rounded-2xl"
               >
                 {loading ? "Calculando..." : "Gerar Rota Otimizada"}
@@ -240,7 +253,7 @@ export default function Routing() {
 
               <RouteHistory 
                 history={history} 
-                onSelect={(addr) => setAddresses(addr)} 
+                onSelect={(addr) => setDestinations(addr)} 
                 onClear={() => { setHistory([]); localStorage.removeItem("roteirizador_history"); }} 
               />
             </CardContent>
@@ -347,7 +360,7 @@ export default function Routing() {
               </div>
               <h3 className="text-xl font-bold text-slate-800 mb-2">Sua rota aparecerá aqui</h3>
               <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-                Insira os endereços no formulário ao lado e clique em gerar para ver o melhor caminho.
+                Insira os destinos no formulário ao lado e clique em gerar para ver o melhor caminho a partir da sua posição.
               </p>
             </div>
           )}
