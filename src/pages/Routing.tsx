@@ -50,7 +50,7 @@ export default function Routing() {
       addresses: addrList,
       count: addrList.split("\n").filter(Boolean).length
     };
-    const newHistory = [newItem, ...history].filter(h => h.addresses !== addrList).slice(0, 9);
+    const newHistory = history.filter(h => h.addresses !== addrList).slice(0, 9);
     const updatedHistory = [newItem, ...newHistory];
     setHistory(updatedHistory);
     localStorage.setItem("roteirizador_history", JSON.stringify(updatedHistory));
@@ -68,6 +68,7 @@ export default function Routing() {
     setFailedAddresses([]);
 
     try {
+      // Passamos explicitamente o estado returnToStart para a função de otimização
       const result = await optimizeRoute(list, returnToStart, (p) => setProgress(p));
       setOptimizedLocations(result.locations);
       setFailedAddresses(result.failed);
@@ -81,6 +82,7 @@ export default function Routing() {
         toast.success("Rota otimizada com sucesso!");
       }
     } catch (err) {
+      console.error(err);
       toast.error("Erro ao processar a rota.");
     } finally {
       setLoading(false);
@@ -89,16 +91,27 @@ export default function Routing() {
 
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
-      toast.error("Geolocalização não suportada.");
+      toast.error("Geolocalização não suportada pelo seu navegador.");
       return;
     }
+
+    toast.info("Obtendo sua localização...");
+    
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const loc = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-        setAddresses(prev => loc + (prev ? "\n" + prev : ""));
-        toast.success("Localização adicionada!");
+        // Adiciona no topo da lista
+        setAddresses(prev => {
+          const currentList = prev.split("\n").filter(Boolean);
+          return [loc, ...currentList].join("\n");
+        });
+        toast.success("Localização atual adicionada como ponto de partida!");
       },
-      () => toast.error("Erro ao obter localização.")
+      (error) => {
+        console.error(error);
+        toast.error("Não foi possível obter sua localização. Verifique as permissões.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 

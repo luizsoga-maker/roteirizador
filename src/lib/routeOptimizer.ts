@@ -12,16 +12,28 @@ export interface Location {
 
 /**
  * Attempts to get coordinates for a string address using OpenStreetMap Nominatim
+ * Now supports direct "lat, lon" input
  */
 export async function geocode(address: string): Promise<{ lat: number; lon: number }> {
-  if (geocodeCache.has(address)) {
-    return geocodeCache.get(address)!;
+  const trimmedAddr = address.trim();
+  
+  // Check if it's already coordinates (lat, lon)
+  const coordMatch = trimmedAddr.match(/^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/);
+  if (coordMatch) {
+    return {
+      lat: parseFloat(coordMatch[1]),
+      lon: parseFloat(coordMatch[2]),
+    };
+  }
+
+  if (geocodeCache.has(trimmedAddr)) {
+    return geocodeCache.get(trimmedAddr)!;
   }
 
   const strategies = [
-    address,
-    address.replace(/\s*\d{5}-?\d{3}\s*$/, ''),
-    address.split(',')[0],
+    trimmedAddr,
+    trimmedAddr.replace(/\s*\d{5}-?\d{3}\s*$/, ''),
+    trimmedAddr.split(',')[0],
   ];
 
   for (const query of strategies) {
@@ -41,17 +53,18 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
           lat: parseFloat(data[0].lat),
           lon: parseFloat(data[0].lon),
         };
-        geocodeCache.set(address, result);
+        geocodeCache.set(trimmedAddr, result);
         return result;
       }
     } catch (error) {
       console.error("Geocoding error:", error);
     }
     
+    // Nominatim requires 1 second between requests
     await new Promise(resolve => setTimeout(resolve, 1100));
   }
 
-  throw new Error(`Endereço não encontrado: ${address}`);
+  throw new Error(`Endereço não encontrado: ${trimmedAddr}`);
 }
 
 /**
@@ -65,6 +78,7 @@ export async function optimizeRoute(
   const locations: Location[] = [];
   const failed: string[] = [];
   
+  // 1. Geocode all addresses
   for (let i = 0; i < addresses.length; i++) {
     try {
       const coords = await geocode(addresses[i]);
@@ -77,9 +91,11 @@ export async function optimizeRoute(
 
   if (locations.length < 2) return { locations, failed };
 
+  // 2. Optimize using Nearest Neighbor
   const unvisited = [...locations];
   const ordered: Location[] = [];
   
+  // Start with the first geocoded location
   let current = unvisited.shift()!;
   const startNode = { ...current };
   ordered.push(current);
@@ -100,8 +116,12 @@ export async function optimizeRoute(
     ordered.push(current);
   }
 
+  // 3. Add return to start if requested
   if (returnToStart && ordered.length > 1) {
-    ordered.push({ ...startNode, addr: `${startNode.addr} (Retorno)` });
+    ordered.push({ 
+      ...startNode, 
+      addr: `${startNode.addr} (Retorno)` 
+    });
   }
 
   return { locations: ordered, failed };
