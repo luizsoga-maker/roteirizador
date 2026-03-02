@@ -10,13 +10,15 @@ import { toast } from "sonner";
 import { 
   Route, Loader2, Copy, Check, 
   Smartphone, Trash2, Map as MapIcon, 
-  Navigation, AlertCircle, Printer, RotateCcw
+  Navigation, AlertCircle, Printer, RotateCcw,
+  MessageCircle, Share2, ArrowLeft
 } from "lucide-react";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { optimizeRoute, calculateTotalDistance, Location } from "@/lib/routeOptimizer";
 import MapComponent from "@/components/MapComponent";
 import { RouteHistory } from "@/components/RouteHistory";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import Logo from "@/components/Logo";
 
 export default function Routing() {
   const [addresses, setAddresses] = useState("");
@@ -48,9 +50,10 @@ export default function Routing() {
       addresses: addrList,
       count: addrList.split("\n").filter(Boolean).length
     };
-    const newHistory = [newItem, ...history].slice(0, 10);
-    setHistory(newHistory);
-    localStorage.setItem("roteirizador_history", JSON.stringify(newHistory));
+    const newHistory = [newItem, ...history].filter(h => h.addresses !== addrList).slice(0, 9);
+    const updatedHistory = [newItem, ...newHistory];
+    setHistory(updatedHistory);
+    localStorage.setItem("roteirizador_history", JSON.stringify(updatedHistory));
   };
 
   const handleOptimize = async () => {
@@ -75,7 +78,7 @@ export default function Routing() {
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} endereço(s) não encontrados.`);
       } else {
-        toast.success("Rota otimizada!");
+        toast.success("Rota otimizada com sucesso!");
       }
     } catch (err) {
       toast.error("Erro ao processar a rota.");
@@ -99,8 +102,20 @@ export default function Routing() {
     );
   };
 
-  const handleExport = (type: 'google' | 'apple') => {
+  const handleExport = (type: 'google' | 'apple' | 'whatsapp') => {
     if (optimizedLocations.length === 0) return;
+
+    if (type === 'whatsapp') {
+      const text = `*Minha Rota Otimizada*\n\n` + 
+        optimizedLocations.map((l, i) => `${i + 1}. ${l.addr}`).join("\n") +
+        `\n\n*Distância total:* ${totalDistance?.toFixed(1)} km\n` +
+        `Gerado por Roteirizador de Endereços`;
+      
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(url, "_blank");
+      return;
+    }
+
     const origin = encodeURIComponent(optimizedLocations[0].addr);
     const destination = encodeURIComponent(optimizedLocations[optimizedLocations.length - 1].addr);
     const waypoints = optimizedLocations.slice(1, -1).map(l => encodeURIComponent(l.addr)).join("|");
@@ -112,57 +127,81 @@ export default function Routing() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-slate-50 pb-20 font-sans">
       <OfflineIndicator />
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-4 print:hidden">
+      
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-3 print:hidden">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-1.5 rounded-lg"><Route className="w-5 h-5 text-white" /></div>
-            <span className="font-bold text-xl text-slate-900">Roteirizador</span>
+          <div className="flex items-center gap-3">
+            <a href="/" className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+              <ArrowLeft className="w-5 h-5 text-slate-600" />
+            </a>
+            <div className="flex items-center gap-2">
+              <Logo className="w-8 h-8" />
+              <span className="font-bold text-lg text-slate-900 hidden sm:inline-block">Roteirizador</span>
+            </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setAddresses("")} className="text-slate-500">
-            <Trash2 className="w-4 h-4 mr-2" /> Limpar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setAddresses("")} className="text-slate-500 hover:text-red-600">
+              <Trash2 className="w-4 h-4 mr-2" /> <span className="hidden sm:inline">Limpar</span>
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Input & Controls */}
         <div className="lg:col-span-5 space-y-6 print:hidden">
-          <Card className="border-none shadow-sm">
+          <Card className="border-none shadow-sm overflow-hidden">
+            <div className="h-1 bg-blue-600" />
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-semibold flex items-center justify-between">
-                <span>Lista de Endereços</span>
-                <Button variant="outline" size="sm" onClick={handleUseMyLocation} className="h-8 text-xs">
+              <CardTitle className="text-lg font-bold flex items-center justify-between">
+                <span>Destinos</span>
+                <Button variant="outline" size="sm" onClick={handleUseMyLocation} className="h-8 text-xs border-blue-200 text-blue-700 hover:bg-blue-50">
                   <Navigation className="w-3 h-3 mr-1" /> Minha Posição
                 </Button>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="relative">
+              <div className="relative group">
                 <Textarea
                   value={addresses}
                   onChange={(e) => setAddresses(e.target.value)}
-                  placeholder="Um endereço por linha..."
-                  className="min-h-[250px] font-mono text-sm resize-none focus-visible:ring-blue-500 border-slate-200"
+                  placeholder="Cole sua lista de endereços aqui..."
+                  className="min-h-[280px] font-mono text-sm resize-none focus-visible:ring-blue-500 border-slate-200 bg-slate-50/50 group-hover:bg-white transition-colors"
                 />
                 {loading && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-md">
-                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-2" />
-                    <span className="text-xs text-slate-500">{progress}%</span>
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-md z-10">
+                    <div className="relative">
+                      <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-blue-600">
+                        {progress}%
+                      </div>
+                    </div>
+                    <span className="text-sm font-semibold text-slate-700 mt-3">Otimizando sua rota...</span>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <div className="flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4 text-slate-500" />
-                  <Label htmlFor="return-start" className="text-sm font-medium cursor-pointer">Retornar ao início</Label>
+              <div className="flex items-center justify-between p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <RotateCcw className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <Label htmlFor="return-start" className="text-sm font-bold text-slate-700 cursor-pointer">Viagem de Ida e Volta</Label>
+                    <p className="text-[11px] text-slate-500">Retornar ao ponto de partida</p>
+                  </div>
                 </div>
                 <Switch id="return-start" checked={returnToStart} onCheckedChange={setReturnToStart} />
               </div>
 
-              <Button onClick={handleOptimize} disabled={loading || !addresses.trim()} className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-base font-semibold shadow-md">
-                {loading ? "Processando..." : "Otimizar Rota"}
+              <Button 
+                onClick={handleOptimize} 
+                disabled={loading || !addresses.trim()} 
+                className="w-full bg-blue-600 hover:bg-blue-700 h-14 text-lg font-bold shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
+              >
+                {loading ? "Calculando..." : "Gerar Rota Otimizada"}
               </Button>
 
               <RouteHistory 
@@ -174,18 +213,20 @@ export default function Routing() {
           </Card>
 
           {failedAddresses.length > 0 && (
-            <Alert variant="destructive" className="bg-red-50 border-red-100">
+            <Alert variant="destructive" className="bg-red-50 border-red-100 animate-in fade-in slide-in-from-top-2">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Endereços não encontrados</AlertTitle>
-              <AlertDescription>
-                <ul className="list-disc list-inside text-xs mt-1 opacity-80">
-                  {failedAddresses.map((addr, i) => <li key={i} className="truncate">{addr}</li>)}
-                </ul>
+              <AlertTitle className="font-bold">Atenção</AlertTitle>
+              <AlertDescription className="text-xs opacity-90">
+                Não conseguimos localizar {failedAddresses.length} endereço(s). Verifique a grafia:
+                <div className="mt-2 space-y-1">
+                  {failedAddresses.map((addr, i) => <div key={i} className="bg-white/50 p-1.5 rounded truncate border border-red-100">{addr}</div>)}
+                </div>
               </AlertDescription>
             </Alert>
           )}
         </div>
 
+        {/* Right Column: Map & Results */}
         <div className="lg:col-span-7 space-y-6">
           <Card className="overflow-hidden border-none shadow-sm print:hidden">
             <div className="bg-slate-100 h-[400px] relative">
@@ -193,47 +234,88 @@ export default function Routing() {
             </div>
           </Card>
 
-          {optimizedLocations.length > 0 && (
-            <Card className="border-none shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <CardHeader className="border-b border-slate-100 flex flex-row items-center justify-between py-4">
+          {optimizedLocations.length > 0 ? (
+            <Card className="border-none shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+              <CardHeader className="border-b border-slate-100 flex flex-row items-center justify-between py-5 bg-white">
                 <div>
-                  <CardTitle className="text-lg">Sequência da Rota</CardTitle>
+                  <CardTitle className="text-xl font-bold text-slate-800">Sua Rota</CardTitle>
                   {totalDistance && (
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      Distância total: <span className="font-semibold text-blue-600">{totalDistance.toFixed(1)} km</span>
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                        {totalDistance.toFixed(1)} km total
+                      </span>
+                      <span className="text-xs text-slate-400">•</span>
+                      <span className="text-xs text-slate-500">{optimizedLocations.length} paradas</span>
+                    </div>
                   )}
                 </div>
                 <div className="flex gap-2 print:hidden">
-                  <Button variant="outline" size="icon" onClick={() => window.print()}><Printer className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="icon" onClick={() => {
+                  <Button variant="outline" size="icon" className="rounded-full" onClick={() => window.print()}><Printer className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="icon" className="rounded-full" onClick={() => {
                     navigator.clipboard.writeText(optimizedLocations.map((l, i) => `${i + 1}. ${l.addr}`).join("\n"));
                     setCopied(true);
-                    toast.success("Copiado!");
+                    toast.success("Copiado para área de transferência!");
                     setTimeout(() => setCopied(false), 2000);
                   }}>{copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}</Button>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
                   {optimizedLocations.map((loc, i) => (
-                    <div key={i} className="flex items-start gap-4 p-4 hover:bg-slate-50 transition-colors">
-                      <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-green-100 text-green-700' : i === optimizedLocations.length - 1 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                    <div key={i} className="flex items-start gap-4 p-5 hover:bg-slate-50 transition-colors group">
+                      <div className={`
+                        flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm
+                        ${i === 0 ? 'bg-emerald-500 text-white' : 
+                          i === optimizedLocations.length - 1 ? 'bg-rose-500 text-white' : 
+                          'bg-white border border-slate-200 text-slate-600 group-hover:border-blue-300 group-hover:text-blue-600'}
+                      `}>
                         {i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-800 font-medium truncate">{loc.addr}</p>
-                        <p className="text-[11px] text-slate-400 uppercase tracking-wider">{i === 0 ? 'Início' : i === optimizedLocations.length - 1 ? 'Fim' : `Parada ${i}`}</p>
+                        <p className="text-sm text-slate-800 font-semibold leading-tight mb-1">{loc.addr}</p>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                            i === 0 ? 'bg-emerald-100 text-emerald-700' : 
+                            i === optimizedLocations.length - 1 ? 'bg-rose-100 text-rose-700' : 
+                            'bg-slate-100 text-slate-500'
+                          }`}>
+                            {i === 0 ? 'Ponto de Partida' : i === optimizedLocations.length - 1 ? 'Destino Final' : `Parada ${i}`}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="p-4 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-3 print:hidden">
-                  <Button onClick={() => handleExport('google')} className="bg-slate-900 hover:bg-black text-white"><Smartphone className="w-4 h-4 mr-2" /> Google Maps</Button>
-                  <Button onClick={() => handleExport('apple')} className="bg-slate-900 hover:bg-black text-white"><Smartphone className="w-4 h-4 mr-2" /> Apple Maps</Button>
+                
+                <div className="p-6 bg-slate-50 border-t border-slate-100 space-y-3 print:hidden">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center mb-2">Abrir navegação em</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Button onClick={() => handleExport('google')} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 shadow-sm h-12 font-bold">
+                      <img src="https://www.google.com/images/branding/product/ico/maps15_b_64dp.png" className="w-5 h-5 mr-2" alt="" />
+                      Google Maps
+                    </Button>
+                    <Button onClick={() => handleExport('apple')} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 shadow-sm h-12 font-bold">
+                      <Smartphone className="w-5 h-5 mr-2 text-slate-400" />
+                      Apple Maps
+                    </Button>
+                    <Button onClick={() => handleExport('whatsapp')} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-200 h-12 font-bold">
+                      <MessageCircle className="w-5 h-5 mr-2" />
+                      WhatsApp
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
+          ) : (
+            <div className="h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-slate-200 rounded-3xl bg-white/50">
+              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                <MapIcon className="w-10 h-10 text-slate-300" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Sua rota aparecerá aqui</h3>
+              <p className="text-sm text-slate-500 max-w-xs leading-relaxed">
+                Insira os endereços no formulário ao lado e clique em gerar para ver o melhor caminho.
+              </p>
+            </div>
           )}
         </div>
       </main>

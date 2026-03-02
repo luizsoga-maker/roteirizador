@@ -1,169 +1,174 @@
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { PWAInstallButton } from "@/components/pwa-install-button";
-import { Route, Smartphone, MapPin, Zap } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Route, Smartphone, MapPin, Zap, Share2, ShieldCheck, Clock } from "lucide-react";
 import Logo from "@/components/Logo";
 
 const Index = () => {
-  const [supportsPWA, setSupportsPWA] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    // Verifica se o navegador suporta PWA
-    const isPWA = 'serviceWorker' in navigator && 'manifest' in document;
-    setSupportsPWA(isPWA);
-
-    // Captura o evento de instalação
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstall = () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then((choiceResult: any) => {
-        if (choiceResult.outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-        } else {
-          console.log('User dismissed the install prompt');
-        }
-        setDeferredPrompt(null);
-      });
-    }
-  };
-
   const features = [
     {
       icon: <MapPin className="w-8 h-8" />,
       title: "Entrada Simples",
-      description: "Cole ou digite seus endereços, um por linha"
+      description: "Cole ou digite seus endereços, um por linha. Sem complicações."
     },
     {
       icon: <Zap className="w-8 h-8" />,
       title: "Otimização Inteligente",
-      description: "Algoritmo que calcula a rota mais eficiente"
+      description: "Nosso algoritmo calcula a rota mais curta para economizar seu tempo e combustível."
     },
     {
       icon: <Smartphone className="w-8 h-8" />,
-      title: "Exporte para Maps",
-      description: "Envie direto para Google Maps ou Apple Maps"
+      title: "Navegação Direta",
+      description: "Abra sua rota otimizada diretamente no Google Maps ou Apple Maps."
     }
   ];
 
+  const benefits = [
+    { icon: <Clock className="w-5 h-5" />, text: "Economize até 30% de tempo" },
+    { icon: <ShieldCheck className="w-5 h-5" />, text: "Privacidade total dos dados" },
+    { icon: <Share2 className="w-5 h-5" />, text: "Compartilhe via WhatsApp" },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="max-w-6xl mx-auto px-4 py-16 md:py-24">
+    <div className="min-h-screen bg-[#0f172a] text-white selection:bg-blue-500/30">
+      {/* Decorative Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full" />
+        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-purple-600/20 blur-[120px] rounded-full" />
+      </div>
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-12 md:py-20">
+        {/* Navigation/Header */}
+        <nav className="flex justify-between items-center mb-16 md:mb-24">
+          <div className="flex items-center gap-3">
+            <Logo className="w-10 h-10" />
+            <span className="text-xl font-bold tracking-tight">Roteirizador</span>
+          </div>
+          <a 
+            href="/route" 
+            className="hidden sm:block text-sm font-medium hover:text-blue-400 transition-colors"
+          >
+            Entrar no App
+          </a>
+        </nav>
+
         {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="flex justify-center mb-6">
-            <div className="p-5 bg-white/10 backdrop-blur-lg rounded-full shadow-2xl border border-white/20">
-              <Route className="w-16 h-16 text-white" />
+        <div className="grid lg:grid-cols-2 gap-12 items-center mb-24">
+          <div className="text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-wider mb-6">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+              </span>
+              Novo: Compartilhamento via WhatsApp
+            </div>
+            <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-[1.1] tracking-tight">
+              Suas rotas, <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">
+                muito mais rápidas.
+              </span>
+            </h1>
+            <p className="text-lg md:text-xl text-slate-400 mb-10 max-w-xl leading-relaxed">
+              A ferramenta definitiva para entregadores, vendedores e viajantes. 
+              Otimize múltiplos destinos em segundos e economize tempo real.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 mb-10">
+              <a
+                href="/route"
+                className="inline-flex items-center justify-center px-8 py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all transform hover:-translate-y-1 active:scale-95"
+              >
+                Começar Gratuitamente
+              </a>
+              <a
+                href="#features"
+                className="inline-flex items-center justify-center px-8 py-4 bg-white/5 backdrop-blur-sm text-white text-lg font-semibold rounded-2xl border border-white/10 hover:bg-white/10 transition-all"
+              >
+                Ver Recursos
+              </a>
+            </div>
+
+            <div className="flex flex-wrap gap-6">
+              {benefits.map((benefit, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="text-blue-500">{benefit.icon}</div>
+                  {benefit.text}
+                </div>
+              ))}
             </div>
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-            Roteirizador de{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-              Endereços
-            </span>
-          </h1>
-          <Logo className="mx-auto d-block w-24 h-24 mb-4" />
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8 leading-relaxed">
-            Otimize suas rotas de entrega, visitas ou viagens com um clique. 
-            Basta inserir seus endereços e exportar para o Google Maps ou Apple Maps.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a
-              href="/route"
-              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-lg font-semibold rounded-full shadow-lg hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105"
-            >
-              <Route className="mr-2 h-5 w-5" />
-              Começar Agora
-            </a>
-            <a
-              href="#como-funciona"
-              className="inline-flex items-center justify-center px-8 py-4 bg-white/10 backdrop-blur text-white text-lg font-semibold rounded-full shadow-lg border border-white/20 hover:bg-white/20 transition-all"
-            >
-              Como Funciona
-            </a>
+
+          <div className="relative hidden lg:block">
+            <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 to-purple-600/20 rounded-3xl blur-3xl" />
+            <div className="relative bg-slate-900/50 border border-white/10 rounded-3xl p-4 backdrop-blur-xl shadow-2xl">
+              <div className="aspect-[4/3] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-white/5">
+                <div className="text-center p-8">
+                  <Route className="w-16 h-16 text-blue-500 mx-auto mb-4 opacity-50" />
+                  <div className="space-y-3">
+                    <div className="h-2 w-48 bg-white/10 rounded-full mx-auto" />
+                    <div className="h-2 w-32 bg-white/10 rounded-full mx-auto" />
+                    <div className="h-2 w-40 bg-white/10 rounded-full mx-auto" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Features Grid */}
-        <div id="como-funciona" className="grid md:grid-cols-3 gap-8 mb-16">
+        <div id="features" className="grid md:grid-cols-3 gap-6 mb-24">
           {features.map((feature, index) => (
             <div 
               key={index}
-              className="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/20 transition-all group"
+              className="bg-white/[0.03] backdrop-blur-md p-8 rounded-3xl border border-white/5 hover:border-blue-500/30 transition-all group"
             >
-              <div className="text-blue-400 mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 mb-6 group-hover:scale-110 transition-transform">
                 {feature.icon}
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">
+              <h3 className="text-xl font-bold mb-3">
                 {feature.title}
               </h3>
-              <p className="text-gray-300">
+              <p className="text-slate-400 leading-relaxed">
                 {feature.description}
               </p>
             </div>
           ))}
         </div>
 
-        {/* How it works */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">
-            Como Funciona
+        {/* CTA Section */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-[2.5rem] p-12 text-center relative overflow-hidden shadow-2xl shadow-blue-900/20">
+          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 relative z-10">
+            Pronto para otimizar seu dia?
           </h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl mx-auto mb-4">
-                1
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Insira os endereços</h3>
-              <p className="text-gray-300 text-sm">
-                Digite ou cole uma lista de endereços, um por linha
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl mx-auto mb-4">
-                2
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Otimize a rota</h3>
-              <p className="text-gray-300 text-sm">
-                Nosso algoritmo calcula a sequência mais eficiente
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-pink-600 rounded-full flex items-center justify-center text-white font-bold text-xl mx-auto mb-4">
-                3
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Exporte para Maps</h3>
-              <p className="text-gray-300 text-sm">
-                Abra no Google Maps ou Apple Maps e navegue
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="text-center">
+          <p className="text-blue-100 mb-10 max-w-xl mx-auto text-lg relative z-10">
+            Junte-se a milhares de usuários que já economizam tempo e dinheiro com o nosso roteirizador.
+          </p>
           <a
             href="/route"
-            className="inline-flex items-center px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xl font-bold rounded-full shadow-2xl hover:from-green-600 hover:to-emerald-700 transition-all transform hover:scale-105"
+            className="inline-flex items-center px-10 py-5 bg-white text-blue-600 text-xl font-bold rounded-2xl shadow-xl hover:bg-slate-50 transition-all transform hover:scale-105 relative z-10"
           >
-            <Route className="mr-3 h-6 w-6" />
-            Otimizar Minha Rota Agora
+            Começar Agora
           </a>
         </div>
       </div>
-      <MadeWithDyad />
+
+      <footer className="border-t border-white/5 py-12 text-center text-slate-500 text-sm">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Logo className="w-6 h-6 grayscale opacity-50" />
+            <span>© 2024 Roteirizador de Endereços</span>
+          </div>
+          <div className="flex gap-8">
+            <a href="#" className="hover:text-white transition-colors">Termos</a>
+            <a href="#" className="hover:text-white transition-colors">Privacidade</a>
+            <a href="#" className="hover:text-white transition-colors">Contato</a>
+          </div>
+        </div>
+        <div className="mt-8">
+          <MadeWithDyad />
+        </div>
+      </footer>
+      
       <PWAInstallButton />
     </div>
   );
