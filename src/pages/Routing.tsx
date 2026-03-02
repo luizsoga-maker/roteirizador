@@ -34,129 +34,148 @@ export default function Routing() {
   const [state, setState] = useState<AddressState>(initialState);
 
   const handleOptimize = async () => {
-    setState((s) => ({ ...s, loading: true, error: null, totalDistance: null, failedAddresses: [], processingProgress: 0 }));
+    setState((s) => ({
+      ...s,
+      loading: true,
+      error: null,
+      totalDistance: null,
+      failedAddresses: [],
+      processingProgress: 0,
+    }));
+
     try {
       const addresses = state.addresses
         .split("\n")
         .map((a) => a.trim())
         .filter(Boolean);
       if (addresses.length < 2) throw new Error("Insira pelo menos dois endereços.");
-      
+
       const { optimizeRoute, calculateTotalDistance } = await import("@/lib/routeOptimizer");
-      
-      // Process addresses one by one to show progress
+
       const processedAddresses: string[] = [];
       const failedAddresses: string[] = [];
-      
+
       for (let i = 0; i < addresses.length; i++) {
-        const progress = ((i + 1) / addresses.length) * 50; // 50% for geocoding, 50% for optimization
+        const progress = ((i + 1) / addresses.length) * 50;
         setState((s) => ({ ...s, processingProgress: Math.round(progress) }));
-        
+
         try {
           const { geocode } = await import("@/lib/routeOptimizer");
           await geocode(addresses[i]);
           processedAddresses.push(addresses[i]);
         } catch (error) {
           failedAddresses.push(addresses[i]);
-          console.warn(`Falha no endereço ${i + 1}:`, error);
         }
-        
-        // Delay de 1 segundo entre cada geocodificação para respeitar rate limit do Nominatim
+
         if (i < addresses.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
-      
+
       setState((s) => ({ ...s, processingProgress: 75 }));
-      
+
       if (failedAddresses.length > 0) {
-        setState((s) => ({ 
-          ...s, 
-          loading: false, 
+        setState((s) => ({
+          ...s,
+          loading: false,
           failedAddresses,
           error: `${failedAddresses.length} endereços não puderam ser geocodificados. Verifique os formatos.`,
-          processingProgress: 0
+          processingProgress: 0,
         }));
         return;
       }
-      
+
       const ordered = await optimizeRoute(processedAddresses);
       const distance = await calculateTotalDistance(ordered);
-      
-      setState((s) => ({ 
-        ...s, 
-        optimizedOrder: ordered, 
-        loading: false, 
+
+      setState((s) => ({
+        ...s,
+        optimizedOrder: ordered,
+        loading: false,
         totalDistance: distance,
-        processingProgress: 100
+        processingProgress: 100,
       }));
+
       toast.success("Rota otimizada com sucesso!");
-      
-      // Reset progress after a short delay
+
       setTimeout(() => setState((s) => ({ ...s, processingProgress: 0 })), 1000);
     } catch (err: any) {
-      setState((s) => ({ ...s, loading: false, error: err.message, processingProgress: 0 }));
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: err.message,
+        processingProgress: 0,
+      }));
       toast.error(err.message);
     }
   };
 
   const handleRetryFailed = async () => {
     if (state.failedAddresses.length === 0) return;
-    
-    setState((s) => ({ ...s, loading: true, error: null, failedAddresses: [], processingProgress: 0 }));
-    
+
+    setState((s) => ({
+      ...s,
+      loading: true,
+      error: null,
+      failedAddresses: [],
+      processingProgress: 0,
+    }));
+
     try {
       const { optimizeRoute, calculateTotalDistance } = await import("@/lib/routeOptimizer");
-      
-      // Retry geocoding for failed addresses
+
       const processedAddresses: string[] = [];
       const newFailedAddresses: string[] = [];
-      
+
       for (let i = 0; i < state.failedAddresses.length; i++) {
         const progress = 50 + ((i + 1) / state.failedAddresses.length) * 50;
         setState((s) => ({ ...s, processingProgress: Math.round(progress) }));
-        
+
         try {
           const { geocode } = await import("@/lib/routeOptimizer");
           await geocode(state.failedAddresses[i]);
           processedAddresses.push(state.failedAddresses[i]);
         } catch (error) {
           newFailedAddresses.push(state.failedAddresses[i]);
-          console.warn(`Falha no retry do endereço ${i + 1}:`, error);
         }
-        
-        // Delay entre tentativas
+
         if (i < state.failedAddresses.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
-      
+
       if (newFailedAddresses.length > 0) {
-        setState((s) => ({ 
-          ...s, 
-          loading: false, 
+        setState((s) => ({
+          ...s,
+          loading: false,
           failedAddresses: newFailedAddresses,
           error: `${newFailedAddresses.length} endereços ainda não puderam ser geocodificados.`,
-          processingProgress: 0
+          processingProgress: 0,
         }));
         return;
       }
-      
+
       const ordered = await optimizeRoute(processedAddresses);
       const distance = await calculateTotalDistance(ordered);
-      
-      setState((s) => ({ 
-        ...s, 
-        optimizedOrder: ordered, 
-        loading: false, 
+
+      setState((s) => ({
+        ...s,
+        optimizedOrder: ordered,
+        loading: false,
         totalDistance: distance,
-        processingProgress: 100
+        processingProgress: 100,
       }));
+
       toast.success("Rota otimizada com sucesso!");
-      
+
       setTimeout(() => setState((s) => ({ ...s, processingProgress: 0 })), 1000);
     } catch (err: any) {
-      setState((s) => ({ ...s, loading: false, error: err.message, processingProgress: 0 }));
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: err.message,
+        processingProgress: 0,
+      }));
       toast.error(err.message);
     }
   };
@@ -171,9 +190,8 @@ export default function Routing() {
 
   const handleExportApple = () => {
     if (state.optimizedOrder.length === 0) return;
-    const first = encodeURIComponent(state.optimizedOrder[0]);
-    const rest = state.optimizedOrder.slice(1).map(encodeURIComponent).join("&daddr=");
-    const url = `https://maps.apple.com/?q=${first}&daddr=${rest}`;
+    const encodedAddresses = state.optimizedOrder.map((addr) => encodeURIComponent(addr));
+    const url = `https://maps.apple.com/?q=${encodedAddresses[0]}${encodedAddresses.slice(1).map((addr) => `&daddr=${addr}`).join("")}`;
     window.open(url, "_blank");
     toast.success("Abrindo Apple Maps...");
   };
@@ -198,11 +216,11 @@ export default function Routing() {
   };
 
   const handleLoadExample = () => {
-    const exampleAddresses = `Av. Paulista, 1000, São Paulo
-Rua Augusta, 500, São Paulo
-Praça da Sé, São Paulo
-Parque Ibirapuera, São Paulo
-Museu de Arte de São Paulo (MASP)`;
+    const exampleAddresses = `Rua Barreto Leme, 1450 - Centro - Campinas/SP - 13010-200
+Av Francisco Glicério, 890 - Centro - Campinas/SP - 13012-100
+Rua Regente Feijó, 320 - Centro - Campinas/SP - 13013-050
+Rua Conceição, 780 - Centro - Campinas/SP - 13010-050
+Rua Luzitana, 210 - Centro - Campinas/SP - 13015-120`;
     setState((s) => ({ ...s, addresses: exampleAddresses }));
     toast.info("Exemplo carregado!");
   };
@@ -251,18 +269,10 @@ Museu de Arte de São Paulo (MASP)`;
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             <div className="flex flex-col sm:flex-row gap-2">
-              <Button 
-                variant="outline" 
-                onClick={handleLoadExample}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={handleLoadExample} className="flex-1">
                 Carregar Exemplo
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleClear}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={handleClear} className="flex-1">
                 Limpar Tudo
               </Button>
             </div>
@@ -270,13 +280,13 @@ Museu de Arte de São Paulo (MASP)`;
             <Textarea
               value={state.addresses}
               onChange={onChangeAddresses}
-              placeholder="Exemplo:&#10;Av. Paulista, 1000, São Paulo&#10;Rua Augusta, 500, São Paulo&#10;Praça da Sé, São Paulo"
+              placeholder="Exemplo:&#10;Rua Barreto Leme, 1450 - Centro - Campinas/SP - 13010-200&#10;Av Francisco Glicério, 890 - Centro - Campinas/SP - 13012-100"
               className="min-h-[200px] text-base p-4 border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               rows={8}
             />
 
             <div className="flex items-center justify-between text-sm text-gray-500">
-              <span>{state.addresses.split("\n").filter(a => a.trim()).length} endereços</span>
+              <span>{state.addresses.split("\n").filter((a) => a.trim()).length} endereços</span>
               {state.totalDistance && (
                 <span className="font-medium text-blue-600">
                   Distância total: {formatDistance(state.totalDistance)}
@@ -291,7 +301,7 @@ Museu de Arte de São Paulo (MASP)`;
                   <span>{state.processingProgress}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${state.processingProgress}%` }}
                   ></div>
@@ -424,8 +434,8 @@ Museu de Arte de São Paulo (MASP)`;
                   <div className="text-sm text-gray-700">
                     <p className="font-semibold mb-1">Dica para uso móvel:</p>
                     <p>
-                      Ao abrir no Google Maps ou Apple Maps, você pode compartilhar a rota 
-                      diretamente do seu aplicativo de mapas ou adicionar como destino 
+                      Ao abrir no Google Maps ou Apple Maps, você pode compartilhar a rota
+                      diretamente do seu aplicativo de mapas ou adicionar como destino
                       manualmente para navegação passo a passo.
                     </p>
                   </div>
