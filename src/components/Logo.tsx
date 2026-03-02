@@ -8,7 +8,7 @@ const Logo = () => {
 
   useEffect(() => {
     const img = new Image();
-    img.src = "/placeholder.svg";
+    img.src = "placeholder.svg"; // Changed from "/placeholder.svg" to "placeholder.svg"
     img.onload = () => setIsLoaded(true);
     img.onerror = () => setIsError(true);
   }, []);
@@ -23,7 +23,7 @@ const Logo = () => {
 
   return (
     <img
-      src="/placeholder.svg"
+      src="placeholder.svg" // Changed from "/placeholder.svg" to "placeholder.svg"
       alt="Logo"
       className="w-24 h-24 object-contain mx-auto d-block"
     />
