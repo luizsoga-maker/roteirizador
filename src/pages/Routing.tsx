@@ -50,8 +50,6 @@ export default function Routing() {
         .filter(Boolean);
       if (addresses.length < 2) throw new Error("Insira pelo menos dois endereços.");
 
-      const { optimizeRoute, calculateTotalDistance } = await import("@/lib/routeOptimizer");
-
       const processedAddresses: string[] = [];
       const failedAddresses: string[] = [];
 
@@ -60,7 +58,6 @@ export default function Routing() {
         setState((s) => ({ ...s, processingProgress: Math.round(progress) }));
 
         try {
-          const { geocode } = await import("@/lib/routeOptimizer");
           await geocode(addresses[i]);
           processedAddresses.push(addresses[i]);
         } catch (error) {
@@ -122,8 +119,6 @@ export default function Routing() {
     }));
 
     try {
-      const { optimizeRoute, calculateTotalDistance } = await import("@/lib/routeOptimizer");
-
       const processedAddresses: string[] = [];
       const newFailedAddresses: string[] = [];
 
@@ -132,7 +127,6 @@ export default function Routing() {
         setState((s) => ({ ...s, processingProgress: Math.round(progress) }));
 
         try {
-          const { geocode } = await import("@/lib/routeOptimizer");
           await geocode(state.failedAddresses[i]);
           processedAddresses.push(state.failedAddresses[i]);
         } catch (error) {
@@ -183,8 +177,6 @@ export default function Routing() {
   const handleExportGoogle = () => {
     if (state.optimizedOrder.length === 0) return;
     
-    // Para Google Maps: usar formato com origem e destino separados
-    // e waypoints no meio. Isso evita problemas de limite de URL.
     if (state.optimizedOrder.length === 1) {
       const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(state.optimizedOrder[0])}`;
       window.open(url, "_blank");
@@ -216,8 +208,6 @@ export default function Routing() {
   const handleExportApple = () => {
     if (state.optimizedOrder.length === 0) return;
     
-    // Para Apple Maps: primeiro endereço como 'q', os demais como 'daddr'
-    // Apple Maps suporta até 10 destinos no total
     if (state.optimizedOrder.length === 1) {
       const url = `https://maps.apple.com/?q=${encodeURIComponent(state.optimizedOrder[0])}`;
       window.open(url, "_blank");
