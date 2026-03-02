@@ -18,11 +18,10 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
     return geocodeCache.get(address)!;
   }
 
-  // Try different variations of the address to improve hit rate
   const strategies = [
-    address, // Original
-    address.replace(/\s*\d{5}-?\d{3}\s*$/, ''), // Remove ZIP code
-    address.split(',')[0], // Just the first part (usually street + number)
+    address,
+    address.replace(/\s*\d{5}-?\d{3}\s*$/, ''),
+    address.split(',')[0],
   ];
 
   for (const query of strategies) {
@@ -49,7 +48,6 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
       console.error("Geocoding error:", error);
     }
     
-    // Respect Nominatim's rate limit (1 request per second)
     await new Promise(resolve => setTimeout(resolve, 1100));
   }
 
@@ -61,6 +59,7 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
  */
 export async function optimizeRoute(
   addresses: string[], 
+  returnToStart: boolean = false,
   onProgress?: (progress: number) => void
 ): Promise<{ locations: Location[], failed: string[] }> {
   const locations: Location[] = [];
@@ -76,14 +75,13 @@ export async function optimizeRoute(
     if (onProgress) onProgress(Math.round(((i + 1) / addresses.length) * 100));
   }
 
-  if (locations.length <= 2) return { locations, failed };
+  if (locations.length < 2) return { locations, failed };
 
-  // Nearest Neighbor Optimization
   const unvisited = [...locations];
   const ordered: Location[] = [];
   
-  // Start with the first valid location
   let current = unvisited.shift()!;
+  const startNode = { ...current };
   ordered.push(current);
 
   while (unvisited.length > 0) {
@@ -102,11 +100,15 @@ export async function optimizeRoute(
     ordered.push(current);
   }
 
+  if (returnToStart && ordered.length > 1) {
+    ordered.push({ ...startNode, addr: `${startNode.addr} (Retorno)` });
+  }
+
   return { locations: ordered, failed };
 }
 
 export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = 
