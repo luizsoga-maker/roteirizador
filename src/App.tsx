@@ -5,7 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Routing from "./pages/Routing"; // Fixed by adding default export
+import Routing from "./pages/Routing";
+import Logo from "./components/Logo"; // Add Logo component import
+
+import "./App.css";
 
 const queryClient = new QueryClient();
 
