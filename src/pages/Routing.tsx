@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { MapPin, Route, Loader2, Copy, Check, Smartphone, RefreshCw, AlertTriangle } from "lucide-react";
+import { MapPin, Route, Loader2, Copy, Check, Smartphone, RefreshCw, AlertTriangle, Trash2, Map as MapIcon } from "lucide-react";
 import { OfflineIndicator } from "@/components/offline-indicator";
-import { geocode, optimizeRoute, calculateTotalDistance } from "@/lib/routeOptimizer";
+import { optimizeRoute, calculateDistance, Location } from "@/lib/routeOptimizer";
+import MapComponent from "@/components/MapComponent";
 
 type AddressState = {
   addresses: string;
-  optimizedOrder: string[];
+  optimizedLocations: Location[];
   loading: boolean;
   error: string | null;
   totalDistance: number | null;
@@ -22,7 +23,7 @@ type AddressState = {
 
 const initialState: AddressState = {
   addresses: "",
-  optimizedOrder: [],
+  optimizedLocations: [],
   loading: false,
   error: null,
   totalDistance: null,
@@ -35,162 +36,38 @@ export default function Routing(): React.ReactElement {
   const [state, setState] = useState<AddressState>(initialState);
 
   const handleOptimize = async () => {
+    const rawAddresses = state.addresses
+      .split("\n")
+      .map((a) => a.trim())
+      .filter(Boolean);
+    
+    if (rawAddresses.length < 2) {
+      toast.error("Insira pelo menos dois endereços.");
+      return;
+    }
+
     setState((s) => ({
       ...s,
       loading: true,
       error: null,
       totalDistance: null,
       failedAddresses: [],
-      processingProgress: 0,
+      processingProgress: 10,
     }));
 
     try {
-      const addresses = state.addresses
-        .split("\n")
-        .map((a) => a.trim())
-        .filter(Boolean);
-      
-      if (addresses.length < 2) throw new Error("Insira pelo menos dois endereços.");
-
-      const validatedAddresses = addresses.map(address => {
-        if (address.includes('CPF') || address.includes('CNPJ') || address.includes('CPF:')) {
-          return address.replace(/CPF|CNPJ|CPF:|CNPJ:/g, '').trim();
-        }
-        return address;
-      }).filter(Boolean);
-
-      if (validatedAddresses.length < 2) {
-        throw new Error("Formato de endereço inválido. Use formato completo como: 'Rua Barreto Leme, 1450 - Centro - Campinas/SP - 13010-200'");
-      }
-
-      const processedAddresses: string[] = [];
-      const failedAddresses: string[] = [];
-
-      for (let i = 0; i < validatedAddresses.length; i++) {
-        const progress = ((i + 1) / validatedAddresses.length) * 50;
-        setState((s) => ({ ...s, processingProgress: Math.round(progress) }));
-
-        try {
-          await geocode(validatedAddresses[i]);
-          processedAddresses.push(validatedAddresses[i]);
-        } catch (error) {
-          failedAddresses.push(validatedAddresses[i]);
-        }
-
-        if (i < validatedAddresses.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-
-      setState((s) => ({ ...s, processingProgress: 75 }));
-
-      if (failedAddresses.length > 0) {
-        setState((s) => ({
-          ...s,
-          loading: false,
-          failedAddresses,
-          error: `${failedAddresses.length} endereços não puderam ser geocodificados. Verifique se estão no formato correto (ex: 'Rua Barreto Leme, 1450 - Centro - Campinas/SP - 13010-200')`,
-          processingProgress: 0,
-        }));
-        return;
-      }
-
-      const ordered = await optimizeRoute(processedAddresses);
-      const distance = await calculateTotalDistance(ordered);
+      const ordered = await optimizeRoute(rawAddresses);
+      const distance = calculateDistance(ordered);
 
       setState((s) => ({
         ...s,
-        optimizedOrder: ordered,
+        optimizedLocations: ordered,
         loading: false,
         totalDistance: distance,
         processingProgress: 100,
       }));
 
       toast.success("Rota otimizada com sucesso!");
-
-      setTimeout(() => setState((s) => ({ ...s, processingProgress: 0 })), 1000);
-    } catch (err: any) {
-      setState((s) => ({
-        ...s,
-        loading: false,
-        error: err.message,
-        processingProgress: 0,
-      }));
-      toast.error(err.message);
-    }
-  };
-
-  const handleRetryFailed = async () => {
-    if (state.failedAddresses.length === 0) return;
-
-    setState((s) => ({
-      ...s,
-      loading: true,
-      error: null,
-      failedAddresses: [],
-      processingProgress: 0,
-    }));
-
-    try {
-      const validatedAddresses: string[] = [];
-      for (const addr of state.failedAddresses) {
-        const formatted = addr.replace(/CPF|CNPJ|CPF:|CNPJ:/g, '').trim();
-        if (formatted) validatedAddresses.push(formatted);
-      }
-
-      if (validatedAddresses.length === 0) {
-        setState((s) => ({
-          ...s,
-          loading: false,
-          error: "Nenhum endereço válido para processar",
-          processingProgress: 0,
-        }));
-        return;
-      }
-
-      const processedAddresses: string[] = [];
-      const newFailedAddresses: string[] = [];
-
-      for (let i = 0; i < validatedAddresses.length; i++) {
-        const progress = 50 + ((i + 1) / validatedAddresses.length) * 50;
-        setState((s) => ({ ...s, processingProgress: Math.round(progress) }));
-
-        try {
-          await geocode(validatedAddresses[i]);
-          processedAddresses.push(validatedAddresses[i]);
-        } catch (error) {
-          newFailedAddresses.push(validatedAddresses[i]);
-        }
-
-        if (i < validatedAddresses.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-
-      if (newFailedAddresses.length > 0) {
-        setState((s) => ({
-          ...s,
-          loading: false,
-          failedAddresses: newFailedAddresses,
-          error: `${newFailedAddresses.length} endereços ainda não puderam ser geocodificados. Verifique o formato`,
-          processingProgress: 0,
-        }));
-        return;
-      }
-
-      const ordered = await optimizeRoute(processedAddresses);
-      const distance = await calculateTotalDistance(ordered);
-
-      setState((s) => ({
-        ...s,
-        optimizedOrder: ordered,
-        loading: false,
-        totalDistance: distance,
-        processingProgress: 100,
-      }));
-
-      toast.success("Rota otimizada com sucesso!");
-
       setTimeout(() => setState((s) => ({ ...s, processingProgress: 0 })), 1000);
     } catch (err: any) {
       setState((s) => ({
@@ -204,315 +81,184 @@ export default function Routing(): React.ReactElement {
   };
 
   const handleExportGoogle = () => {
-    if (state.optimizedOrder.length === 0) return;
+    if (state.optimizedLocations.length === 0) return;
     
-    if (state.optimizedOrder.length === 1) {
-      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(state.optimizedOrder[0])}`;
-      window.open(url, "_blank");
-      toast.success("Abrindo Google Maps...");
-      return;
-    }
-
-    const origin = encodeURIComponent(state.optimizedOrder[0]);
-    const destination = encodeURIComponent(state.optimizedOrder[state.optimizedOrder.length - 1]);
-    const waypoints = state.optimizedOrder.slice(1, -1).map(encodeURIComponent).join("|");
+    const origin = encodeURIComponent(state.optimizedLocations[0].addr);
+    const destination = encodeURIComponent(state.optimizedLocations[state.optimizedLocations.length - 1].addr);
+    const waypoints = state.optimizedLocations.slice(1, -1).map(loc => encodeURIComponent(loc.addr)).join("|");
 
     let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${origin}&destination=${destination}`;
-    if (waypoints) {
-      url += `&waypoints=${waypoints}`;
-    }
-
-    console.log("Google Maps URL:", url);
-    console.log("URL length:", url.length);
-    
-    if (url.length > 2000) {
-      toast.error("URL muito longa para o Google Maps. Tente exportar em partes.");
-      return;
-    }
+    if (waypoints) url += `&waypoints=${waypoints}`;
 
     window.open(url, "_blank");
-    toast.success("Abrindo Google Maps...");
   };
 
   const handleExportApple = () => {
-    if (state.optimizedOrder.length === 0) return;
-    
-    if (state.optimizedOrder.length === 1) {
-      const url = `https://maps.apple.com/?q=${encodeURIComponent(state.optimizedOrder[0])}`;
-      window.open(url, "_blank");
-      toast.success("Abrindo Apple Maps...");
-      return;
-    }
-
-    const encodedAddresses = state.optimizedOrder.map((addr) => encodeURIComponent(addr));
+    if (state.optimizedLocations.length === 0) return;
+    const encodedAddresses = state.optimizedLocations.map((loc) => encodeURIComponent(loc.addr));
     const url = `https://maps.apple.com/?q=${encodedAddresses[0]}${encodedAddresses.slice(1).map((addr) => `&daddr=${addr}`).join("")}`;
-
-    console.log("Apple Maps URL:", url);
-    console.log("URL length:", url.length);
-    
-    if (url.length > 2000) {
-      toast.error("URL muito longa para o Apple Maps. Tente exportar em partes.");
-      return;
-    }
-
     window.open(url, "_blank");
-    toast.success("Abrindo Apple Maps...");
   };
 
   const handleCopyToClipboard = async () => {
-    if (state.optimizedOrder.length === 0) return;
+    if (state.optimizedLocations.length === 0) return;
     try {
       await navigator.clipboard.writeText(
-        state.optimizedOrder.map((addr, i) => `${i + 1}. ${addr}`).join("\n")
+        state.optimizedLocations.map((loc, i) => `${i + 1}. ${loc.addr}`).join("\n")
       );
       setState((s) => ({ ...s, copied: true }));
-      toast.success("Rota copiada para a área de transferência!");
+      toast.success("Rota copiada!");
       setTimeout(() => setState((s) => ({ ...s, copied: false })), 2000);
     } catch (err) {
-      toast.error("Erro ao copiar rota");
+      toast.error("Erro ao copiar");
     }
   };
 
   const handleClear = () => {
     setState(initialState);
-    toast.info("Campos limpos");
   };
 
   const handleLoadExample = () => {
-    const exampleAddresses = `Rua Barreto Leme, 1450 - Centro - Campinas/SP - 13010-200
-Av Francisco Glicério, 890 - Centro - Campinas/SP - 13012-100
-Rua Regente Feijó, 320 - Centro - Campinas/SP - 13013-050
-Rua Conceição, 780 - Centro - Campinas/SP - 13010-050
-Rua Luzitana, 210 - Centro - Campinas/SP - 13015-120`;
-    
+    const exampleAddresses = `Rua Barreto Leme, 1450 - Centro - Campinas/SP
+Av Francisco Glicério, 890 - Centro - Campinas/SP
+Rua Regente Feijó, 320 - Centro - Campinas/SP
+Rua Conceição, 780 - Centro - Campinas/SP`;
     setState((s) => ({ ...s, addresses: exampleAddresses }));
-    toast.info("Exemplo carregado!");
-  };
-
-  const onChangeAddresses = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setState((s) => ({ ...s, addresses: e.target.value }));
   };
 
   const formatDistance = (km: number) => {
-    if (km >= 1000) {
-      return `${(km / 1000).toFixed(1)} km`;
-    }
-    return `${km.toFixed(0)} m`;
+    return km >= 1 ? `${km.toFixed(2)} km` : `${(km * 1000).toFixed(0)} m`;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <OfflineIndicator />
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="p-4 bg-white rounded-full shadow-lg">
-              <Route className="w-12 h-12 text-blue-600" />
+      <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Left Column: Input */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-600 rounded-lg">
+              <Route className="w-6 h-6 text-white" />
             </div>
+            <h1 className="text-2xl font-bold text-slate-800">Roteirizador</h1>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-            Roteirizador de Endereços
-          </h1>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Otimize sua rota com inteligência e exporte para Google Maps ou Apple Maps.
-            Ideal para entregas, visitas comerciais e planejamento de viagens.
-          </p>
-        </div>
 
-        {/* Main Card */}
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              <span>Entrada de Endereços</span>
-            </CardTitle>
-            <p className="text-blue-100 text-sm mt-2">
-              Digite um endereço por linha. A rota será otimizada automaticamente.
-            </p>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={handleLoadExample} className="flex-1">
-                Carregar Exemplo
-              </Button>
-              <Button variant="outline" onClick={handleClear} className="flex-1">
-                Limpar Tudo
-              </Button>
-            </div>
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-blue-600" />
+                Endereços
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleLoadExample} className="flex-1">
+                  Exemplo
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleClear} className="flex-1">
+                  Limpar
+                </Button>
+              </div>
 
-            <Textarea
-              value={state.addresses}
-              onChange={onChangeAddresses}
-              placeholder="Exemplo:&#10;Rua Barreto Leme, 1450 - Centro - Campinas/SP - 13010-200&#10;Av Francisco Glicério, 890 - Centro - Campinas/SP - 13012-100"
-              className="min-h-[200px] text-base p-4 border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              rows={8}
-            />
+              <Textarea
+                value={state.addresses}
+                onChange={(e) => setState(s => ({ ...s, addresses: e.target.value }))}
+                placeholder="Um endereço por linha..."
+                className="min-h-[250px] resize-none focus-visible:ring-blue-500"
+              />
 
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <span>{state.addresses.split("\n").filter((a) => a.trim()).length} endereços</span>
-              {state.totalDistance && (
-                <span className="font-medium text-blue-600">
-                  Distância total: {formatDistance(state.totalDistance)}
-                </span>
-              )}
-            </div>
-
-            {state.processingProgress > 0 && state.processingProgress < 100 && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Processando...</span>
-                  <span>{state.processingProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+              {state.processingProgress > 0 && (
+                <div className="w-full bg-slate-100 rounded-full h-1.5">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-blue-600 h-1.5 rounded-full transition-all duration-500"
                     style={{ width: `${state.processingProgress}%` }}
                   ></div>
                 </div>
-              </div>
-            )}
-
-            <Button
-              onClick={handleOptimize}
-              disabled={state.loading || !state.addresses.trim()}
-              className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {state.loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Otimizando rota...
-                </>
-              ) : (
-                <>
-                  <Route className="mr-2 h-5 w-5" />
-                  Otimizar Rota
-                </>
               )}
-            </Button>
 
-            {state.error && (
-              <Card className="border-red-200 bg-red-50">
-                <CardContent className="pt-4 text-red-700">
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <strong>Erro:</strong> {state.error}
-                  </div>
-                  {state.failedAddresses.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-sm font-medium mb-1">Endereços com problemas:</p>
-                      <ul className="text-xs space-y-1">
-                        {state.failedAddresses.map((addr, i) => (
-                          <li key={i} className="bg-red-100 p-1 rounded">• {addr}</li>
-                        ))}
-                      </ul>
-                      <Button
-                        onClick={handleRetryFailed}
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        disabled={state.loading}
-                      >
-                        <RefreshCw className="mr-1 h-3 w-3" />
-                        Tentar novamente
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </CardContent>
-        </Card>
+              <Button
+                onClick={handleOptimize}
+                disabled={state.loading || !state.addresses.trim()}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6"
+              >
+                {state.loading ? (
+                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Otimizando...</>
+                ) : (
+                  <><Route className="mr-2 h-5 w-5" /> Otimizar Rota</>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
 
-        {/* Results Section */}
-        {state.optimizedOrder.length > 0 && (
-          <div className="mt-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Optimized Route Card */}
-            <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
-                <CardTitle className="flex items-center gap-2">
-                  <Check className="w-5 h-5" />
-                  <span>Rota Otimizada</span>
-                </CardTitle>
-                <p className="text-green-100 text-sm mt-2">
-                  Sequência recomendada para minimizar distância total
-                </p>
-              </CardHeader>
+          {state.optimizedLocations.length > 0 && (
+            <Card className="bg-blue-600 text-white border-none shadow-lg">
               <CardContent className="p-6">
-                <ol className="space-y-3">
-                  {state.optimizedOrder.map((addr, i) => (
-                    <li key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-blue-100 text-sm">Distância Estimada</p>
+                    <p className="text-3xl font-bold">{formatDistance(state.totalDistance || 0)}</p>
+                  </div>
+                  <div className="p-3 bg-white/20 rounded-full">
+                    <Zap className="w-8 h-8" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Column: Map & Results */}
+        <div className="lg:col-span-7 space-y-6">
+          <Card className="overflow-hidden shadow-sm border-slate-200">
+            <CardHeader className="bg-slate-50 border-b border-slate-200 py-3 px-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-slate-600">
+                <MapIcon className="w-4 h-4" />
+                Visualização da Rota
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <MapComponent locations={state.optimizedLocations} />
+            </CardContent>
+          </Card>
+
+          {state.optimizedLocations.length > 0 && (
+            <Card className="shadow-sm border-slate-200 animate-in fade-in slide-in-from-top-4 duration-500">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Check className="w-5 h-5 text-green-600" />
+                  Sequência Otimizada
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {state.optimizedLocations.map((loc, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
                         {i + 1}
                       </div>
-                      <span className="text-gray-800 pt-1">{addr}</span>
-                    </li>
+                      <span className="text-sm text-slate-700 leading-tight">{loc.addr}</span>
+                    </div>
                   ))}
-                </ol>
+                </div>
 
-                <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                  <Button
-                    onClick={handleCopyToClipboard}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    {state.copied ? (
-                      <>
-                        <Check className="mr-2 h-4 w-4 text-green-600" />
-                        Copiado!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copiar Lista
-                      </>
-                    )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <Button variant="outline" onClick={handleCopyToClipboard} className="w-full">
+                    {state.copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                    Copiar
                   </Button>
-                  <Button
-                    onClick={handleExportGoogle}
-                    variant="default"
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Smartphone className="mr-2 h-4 w-4" />
-                    Google Maps
+                  <Button onClick={handleExportGoogle} className="w-full bg-slate-800 hover:bg-slate-900">
+                    <Smartphone className="w-4 h-4 mr-2" />
+                    Google
                   </Button>
-                  <Button
-                    onClick={handleExportApple}
-                    variant="default"
-                    className="flex-1 bg-gray-900 hover:bg-gray-800"
-                  >
-                    <Smartphone className="mr-2 h-4 w-4" />
-                    Apple Maps
+                  <Button onClick={handleExportApple} className="w-full bg-slate-800 hover:bg-slate-900">
+                    <Smartphone className="w-4 h-4 mr-2" />
+                    Apple
                   </Button>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Info Card */}
-            <Card className="border-blue-200 bg-blue-50/50">
-              <CardContent className="pt-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <Smartphone className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="text-sm text-gray-700">
-                    <p className="font-semibold mb-1">Dica para uso móvel:</p>
-                    <p>
-                      Ao abrir no Google Maps ou Apple Maps, você pode compartilhar a rota
-                      diretamente do seu aplicativo de mapas ou adicionar como destino
-                      manualmente para navegação passo a passo.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="mt-12 text-center text-gray-500 text-sm">
-          <p>Desenvolvido com inteligência artificial para otimização de rotas</p>
-          <p className="mt-1">Usa OpenStreetMap para geocodificação • Sem armazenamento de dados</p>
+          )}
         </div>
       </div>
     </div>
