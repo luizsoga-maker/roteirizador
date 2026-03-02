@@ -156,6 +156,7 @@ export async function optimizeRoute(addresses: string[]): Promise<string[]> {
   if (addresses.length === 0) return [];
   
   console.log(`[OPTIMIZE] Starting optimization for ${addresses.length} addresses`);
+  console.log(`[OPTIMIZE] Original order:`, addresses);
   
   // Geocode all addresses sequentially to respect rate limits
   const locations: Array<{ addr: string; lat: number; lon: number; index: number }> = [];
@@ -180,18 +181,29 @@ export async function optimizeRoute(addresses: string[]): Promise<string[]> {
     }
   }
 
-  console.log(`[OPTIMIZE] All addresses geocoded. Starting route optimization...`);
+  console.log(`[OPTIMIZE] All addresses geocoded. Locations:`, locations);
   
+  // If only 1 or 2 addresses, return as-is (no optimization needed)
+  if (locations.length <= 2) {
+    const result = locations.map(loc => loc.addr);
+    console.log(`[OPTIMIZE] Only ${locations.length} addresses, returning original order:`, result);
+    return result;
+  }
+
+  // Start from the first address (index 0) and find nearest neighbors
   const visited = new Set<number>();
   const ordered: string[] = [];
-  let currentIndex = 0;
+  let currentIndex = 0; // Always start with the first address
 
   while (ordered.length < locations.length) {
     ordered.push(locations[currentIndex].addr);
     visited.add(currentIndex);
+    console.log(`[OPTIMIZE] Added address ${ordered.length}/${locations.length}:`, locations[currentIndex].addr);
 
     let nearest = -1;
     let nearestDist = Infinity;
+    
+    // Find the nearest unvisited location
     for (let i = 0; i < locations.length; i++) {
       if (visited.has(i)) continue;
       const d = haversine(
@@ -205,10 +217,30 @@ export async function optimizeRoute(addresses: string[]): Promise<string[]> {
         nearest = i;
       }
     }
+    
+    if (nearest === -1) {
+      // All visited, break
+      break;
+    }
+    
     currentIndex = nearest;
   }
 
-  console.log(`[OPTIMIZE] Route optimization complete. Order:`, ordered);
+  console.log(`[OPTIMIZE] Route optimization complete. Final order:`, ordered);
+  console.log(`[OPTIMIZE] Expected ${addresses.length} addresses, got ${ordered.length}`);
+  
+  // Ensure we have all addresses
+  if (ordered.length !== addresses.length) {
+    console.warn(`[OPTIMIZE] Missing ${addresses.length - ordered.length} addresses!`);
+    // Add any missing addresses at the end
+    for (const loc of locations) {
+      if (!ordered.includes(loc.addr)) {
+        ordered.push(loc.addr);
+        console.log(`[OPTIMIZE] Added missing address:`, loc.addr);
+      }
+    }
+  }
+  
   return ordered;
 }
 
