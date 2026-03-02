@@ -8,7 +8,7 @@ const Logo = () => {
 
   useEffect(() => {
     const img = new Image();
-    img.src = "placeholder.svg"; // Changed from "/placeholder.svg" to "placeholder.svg"
+    img.src = "/placeholder.svg"; // Use absolute path
     img.onload = () => setIsLoaded(true);
     img.onerror = () => setIsError(true);
   }, []);
@@ -23,7 +23,7 @@ const Logo = () => {
 
   return (
     <img
-      src="placeholder.svg" // Changed from "/placeholder.svg" to "placeholder.svg"
+      src="/placeholder.svg" // Use absolute path
       alt="Logo"
       className="w-24 h-24 object-contain mx-auto d-block"
     />
