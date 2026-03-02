@@ -16,6 +16,7 @@ import {
   RefreshCw, Edit3, ListOrdered
 } from "lucide-react";
 import { OfflineIndicator } from "@/components/offline-indicator";
+import { PWAInstallButton } from "@/components/pwa-install-button";
 import { optimizeRoute, calculateTotalDistance, Location } from "@/lib/routeOptimizer";
 import MapComponent from "@/components/MapComponent";
 import { RouteHistory } from "@/components/RouteHistory";
@@ -43,11 +44,10 @@ export default function Routing() {
     if (!destinations.trim()) return [];
     
     // Divide por quebra de linha, ponto e vírgula ou ponto final seguido de espaço
-    // Também remove numerações comuns no início da linha (ex: "1. ", "2- ", "(3) ")
     return destinations
       .split(/\n|;|(?<=\D)\.(?=\s|$)/) 
       .map(addr => addr.replace(/^\s*[\d\(\)\-\.\s]+/, '').trim())
-      .filter(addr => addr.length > 5); // Filtra entradas muito curtas que provavelmente não são endereços
+      .filter(addr => addr.length > 5);
   }, [destinations]);
 
   const handleFetchLocation = useCallback((highAccuracy = true) => {
@@ -295,9 +295,6 @@ export default function Routing() {
                     </div>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 italic px-1">
-                  Dica: Você pode colar endereços do Excel, WhatsApp ou Bloco de Notas.
-                </p>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
@@ -436,6 +433,7 @@ export default function Routing() {
           )}
         </div>
       </main>
+      <PWAInstallButton />
     </div>
   );
 }
