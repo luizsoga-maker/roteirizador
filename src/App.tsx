@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Routing from "./pages/Routing";
-import Logo from "./components/Logo"; // Add Logo component import
 
 import "./App.css";
 
@@ -18,9 +17,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <Logo /> {/* Render the Logo component here */}
-        </div>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/route" element={<Routing />} />
