@@ -12,13 +12,29 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
 
   console.log(`[GEOCODING] Attempting: "${address}"`);
   
+  // Estratégias de formatação mais robustas
   const strategies = [
     { name: 'completo', addr: address },
-    { name: 'sem CEP', addr: simplifyAddress(address) },
-    { name: 'apenas rua e número', addr: getStreetAndNumber(address) },
-    { name: 'cidade e estado', addr: getCityState(address) },
-    { name: 'apenas rua', addr: getStreetOnly(address) },
-    { name: 'formato alternativo', addr: formatAlternative(address) }
+    { 
+      name: 'sem CEP', 
+      addr: address.replace(/\s*\d{5}-?\d{3}\s*$/, '') 
+    },
+    { 
+      name: 'apenas rua e número', 
+      addr: extractStreetAndNumber(address) 
+    },
+    { 
+      name: 'cidade e estado', 
+      addr: extractCityState(address) 
+    },
+    { 
+      name: 'apenas rua', 
+      addr: extractStreetOnly(address) 
+    },
+    { 
+      name: 'formato alternativo', 
+      addr: formatAlternativeAddress(address) 
+    }
   ];
 
   for (const strategy of strategies) {
@@ -47,31 +63,57 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
   throw new Error(`Não foi possível encontrar o endereço: "${address}"`);
 }
 
-function getStreetAndNumber(address: string): string {
-  // Extrair rua e número do formato brasileiro
+// Funções auxiliares mais robustas
+function extractStreetAndNumber(address: string): string {
+  // Remove CEP e formata para "Rua, Cidade, Estado"
   let cleaned = address.replace(/\s*\d{5}-?\d{3}\s*$/, '');
   
-  const parts = cleaned.split(' - ');
+  // Divide por traços ou hífens
+  const parts = cleaned.split(/[\-\–]\s*/);
   if (parts.length >= 3) {
-    const streetPart = parts[0];
-    const cityState = parts[2];
-    const city = cityState.split('/')[0];
-    const state = cityState.split('/')[1] || cityState;
-    return `${streetPart}, ${city}, ${state}`;
+    const streetPart = parts[0].trim();
+    const cityState = parts[2].trim();
+    
+    // Extrai cidade e estado
+    const cityStateMatch = cityState.match(/([A-Za-z\s]+)\/([A-Za-z]{2})\s*$/);
+    if (cityStateMatch) {
+      const city = cityStateMatch[1].trim();
+      const state = cityStateMatch[2].trim();
+      return `${streetPart}, ${city}, ${state}`;
+    }
+    
+    // Se não encontrar formato cidade/estado, tenta extrair cidade
+    const cityMatch = cityState.match(/^([A-Za-z\s]+),\s*([A-Z]{2})$/);
+    if (cityMatch) {
+      return `${streetPart}, ${cityMatch[1]}, ${cityMatch[2]}`;
+    }
+    
+    return `${streetPart}, ${cityState}`;
   }
   
   return cleaned;
 }
 
-function getCityState(address: string): string {
-  const match = address.match(/([A-Za-z\s]+)\/([A-Za-z]{2})\s*$/);
-  if (match) {
-    return `${match[1]}, ${match[2]}`;
+function extractCityState(address: string): string {
+  // Extrai cidade e estado de formatos comuns
+  const cityStatePatterns = [
+    /([A-Za-z\s]+)\/([A-Za-z]{2})\s*$/,
+    /([A-Za-z\s]+),\s*([A-Z]{2})\s*$/,
+    /([A-Za-z\s]+)\s+([A-Z]{2})\s*$/
+  ];
+  
+  for (const pattern of cityStatePatterns) {
+    const match = address.match(pattern);
+    if (match) {
+      return `${match[1]}, ${match[2]}`;
+    }
   }
-  return '';
+  
+  return address;
 }
 
-function getStreetOnly(address: string): string {
+function extractStreetOnly(address: string): string {
+  // Extrai apenas a rua (até a primeira vírgula)
   const match = address.match(/^([^,]+),/);
   if (match) {
     return match[1].trim();
@@ -79,26 +121,18 @@ function getStreetOnly(address: string): string {
   return address.split(',')[0].trim();
 }
 
-function simplifyAddress(address: string): string {
-  let simplified = address.replace(/\s*\d{5}-?\d{3}\s*$/, '');
-  
-  const parts = simplified.split(' - ');
-  if (parts.length >= 3) {
-    return `${parts[0]}, ${parts[2]}`;
-  }
-  
-  return simplified.trim();
-}
-
-function formatAlternative(address: string): string {
+function formatAlternativeAddress(address: string): string {
+  // Formata endereços alternativos
   let cleaned = address.replace(/\s*\d{5}-?\d{3}\s*$/, '');
-  cleaned = cleaned.replace(' - ', ', ');
+  cleaned = cleaned.replace(/[\-\–]\s*/g, ', ');
   return cleaned;
 }
 
 async function tryGeocodeWithOpenStreetMap(address: string): Promise<{ lat: number; lon: number } | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1&countrycodes=br`;
+    // URL mais robusta com parâmetros otimizados
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1&countrycodes=br&email=contato@roteirizador.com.br`;
+    
     console.log(`[API] Requesting: ${url}`);
     
     const response = await fetch(url, {
@@ -147,7 +181,7 @@ export function haversine(lat1: number, lon1: number, lat2: number, lon2: number
     Math.cos(toRad(lat1)) *
     Math.cos(toRad(lat2)) *
     Math.sin(dLon / 2) ** 2;
-    
+  
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
