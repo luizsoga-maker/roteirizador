@@ -182,16 +182,60 @@ export default function Routing() {
 
   const handleExportGoogle = () => {
     if (state.optimizedOrder.length === 0) return;
-    const waypoints = state.optimizedOrder.map(encodeURIComponent).join("|");
-    const url = `https://www.google.com/maps/dir/?api=1&travelmode=driving&waypoints=${waypoints}`;
+    
+    // Para Google Maps: usar formato com origem e destino separados
+    // e waypoints no meio. Isso evita problemas de limite de URL.
+    if (state.optimizedOrder.length === 1) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(state.optimizedOrder[0])}`;
+      window.open(url, "_blank");
+      toast.success("Abrindo Google Maps...");
+      return;
+    }
+
+    const origin = encodeURIComponent(state.optimizedOrder[0]);
+    const destination = encodeURIComponent(state.optimizedOrder[state.optimizedOrder.length - 1]);
+    const waypoints = state.optimizedOrder.slice(1, -1).map(encodeURIComponent).join("|");
+
+    let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${origin}&destination=${destination}`;
+    if (waypoints) {
+      url += `&waypoints=${waypoints}`;
+    }
+
+    console.log("Google Maps URL:", url);
+    console.log("URL length:", url.length);
+    
+    if (url.length > 2000) {
+      toast.error("URL muito longa para o Google Maps. Tente exportar em partes.");
+      return;
+    }
+
     window.open(url, "_blank");
     toast.success("Abrindo Google Maps...");
   };
 
   const handleExportApple = () => {
     if (state.optimizedOrder.length === 0) return;
+    
+    // Para Apple Maps: primeiro endereço como 'q', os demais como 'daddr'
+    // Apple Maps suporta até 10 destinos no total
+    if (state.optimizedOrder.length === 1) {
+      const url = `https://maps.apple.com/?q=${encodeURIComponent(state.optimizedOrder[0])}`;
+      window.open(url, "_blank");
+      toast.success("Abrindo Apple Maps...");
+      return;
+    }
+
     const encodedAddresses = state.optimizedOrder.map((addr) => encodeURIComponent(addr));
     const url = `https://maps.apple.com/?q=${encodedAddresses[0]}${encodedAddresses.slice(1).map((addr) => `&daddr=${addr}`).join("")}`;
+
+    console.log("Apple Maps URL:", url);
+    console.log("URL length:", url.length);
+    
+    if (url.length > 2000) {
+      toast.error("URL muito longa para o Apple Maps. Tente exportar em partes.");
+      return;
+    }
+
     window.open(url, "_blank");
     toast.success("Abrindo Apple Maps...");
   };
