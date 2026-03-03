@@ -40,15 +40,22 @@ export default function Routing() {
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
 
-  // Processa a string de destinos para identificar endereços individuais
+  // Processa a string de destinos com lógica aprimorada
   const processedDestinations = useMemo(() => {
     if (!destinations.trim()) return [];
     
-    // Divide por quebra de linha, ponto e vírgula ou ponto final seguido de espaço
-    return destinations
-      .split(/\n|;|(?<=\D)\.(?=\s|$)/) 
-      .map(addr => addr.replace(/^\s*[\d\(\)\-\.\s]+/, '').trim())
-      .filter(addr => addr.length > 5);
+    // 1. Divide por quebras de linha, ponto e vírgula, ou barras verticais
+    // 2. Também tenta dividir por símbolos de "bullet" (•, *, -) se houver espaço depois
+    const rawList = destinations.split(/\n|;|\||(?<=\s)[•*](?=\s)/);
+    
+    return rawList
+      .map(addr => {
+        return addr
+          .replace(/^[•*-\s]+/, '') // Remove bullets no início
+          .replace(/^\d+[\s.)-]+\s*/, '') // Remove números como "1.", "1)", "1-"
+          .trim();
+      })
+      .filter(addr => addr.length > 8); // Endereços válidos costumam ter mais de 8 caracteres
   }, [destinations]);
 
   const handleFetchLocation = useCallback((highAccuracy = true) => {
