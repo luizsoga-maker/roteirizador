@@ -28,10 +28,13 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
         
       - name: Build
         run: npm run build
+        
+      - name: Fix SPA Routing
+        run: cp dist/index.html dist/404.html
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
