@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { PWAInstallButton } from "@/components/pwa-install-button";
 import { Smartphone, MapPin, Zap, Share2, ShieldCheck, Clock, ArrowRight, CheckCircle2 } from "lucide-react";
@@ -44,12 +45,12 @@ const Index = () => {
               ROTEIRIZADOR
             </span>
           </div>
-          <a 
-            href="/route" 
+          <Link 
+            to="/route" 
             className="px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-sm font-bold transition-all backdrop-blur-md"
           >
             Abrir App
-          </a>
+          </Link>
         </header>
 
         {/* Hero Section */}
@@ -72,13 +73,13 @@ const Index = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <a
-                href="/route"
+              <Link
+                to="/route"
                 className="group inline-flex items-center justify-center px-8 py-5 bg-blue-600 text-white text-lg font-black rounded-2xl shadow-[0_0_40px_rgba(37,99,235,0.3)] hover:bg-blue-500 transition-all transform hover:-translate-y-1"
               >
                 Começar Agora
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </a>
+              </Link>
               <div className="flex items-center gap-4 px-6 py-5">
                 <div className="flex -space-x-3">
                   {[1,2,3].map(i => (
@@ -187,12 +188,12 @@ const Index = () => {
                 Junte-se a milhares de profissionais que já otimizaram suas entregas e visitas. É grátis e sempre será.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-6">
-                <a
-                  href="/route"
+                <Link
+                  to="/route"
                   className="px-10 py-5 bg-white text-blue-600 text-xl font-black rounded-2xl shadow-2xl hover:scale-105 transition-transform"
                 >
                   Começar Agora
-                </a>
+                </Link>
                 <div className="flex flex-col items-center sm:items-start justify-center text-left">
                   <div className="flex gap-1 mb-1">
                     {[1,2,3,4,5].map(i => <CheckCircle2 key={i} className="w-4 h-4 text-blue-200" />)}
