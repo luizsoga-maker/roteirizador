@@ -9,19 +9,19 @@ const Index = () => {
       icon: <MapPin className="w-8 h-8" />,
       title: "Entrada Inteligente",
       description: "Cole sua lista de endereços ou use sua localização atual. Suportamos diversos formatos de texto.",
-      image: "https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&q=80&w=800"
+      image: "https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=800"
     },
     {
       icon: <Zap className="w-8 h-8" />,
       title: "Algoritmo Avançado",
       description: "Cálculos precisos que consideram a melhor sequência lógica para reduzir quilometragem.",
-      image: "https://images.unsplash.com/photo-1580674285054-bed31e145f59?auto=format&fit=crop&q=80&w=800"
+      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800"
     },
     {
       icon: <Smartphone className="w-8 h-8" />,
       title: "Foco em Mobilidade",
       description: "Interface otimizada para uso em movimento, com botões grandes e navegação intuitiva.",
-      image: "https://images.unsplash.com/photo-1556656793-062ff9878258?auto=format&fit=crop&q=80&w=800"
+      image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=800"
     }
   ];
 
@@ -102,7 +102,7 @@ const Index = () => {
             <div className="absolute inset-0 bg-blue-500/20 blur-[100px] rounded-full" />
             <div className="relative rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl transform lg:rotate-3 hover:rotate-0 transition-transform duration-700">
               <img 
-                src="https://images.unsplash.com/photo-1527030280862-64139fba04ca?auto=format&fit=crop&q=80&w=1200" 
+                src="https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?auto=format&fit=crop&q=80&w=1200" 
                 alt="App Preview" 
                 className="w-full h-full object-cover aspect-[4/3]"
               />
