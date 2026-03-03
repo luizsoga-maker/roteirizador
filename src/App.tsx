@@ -6,7 +6,7 @@ import Routing from "./pages/Routing";
 import "./App.css";
 
 const App = () => (
-  <BrowserRouter>
+  <BrowserRouter basename="/roteirizador">
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/route" element={<Routing />} />

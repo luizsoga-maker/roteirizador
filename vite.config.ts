@@ -5,6 +5,7 @@ import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig(() => ({
+  base: '/roteirizador/',
   server: {
     host: "::",
     port: 5173,
@@ -19,7 +20,7 @@ export default defineConfig(() => ({
         name: "Roteirizador de Endereços",
         short_name: "Roteirizador",
         description: "Otimize suas rotas de entrega, visitas ou viagens com um clique",
-        start_url: "/",
+        start_url: "/roteirizador/",
         display: "standalone",
         background_color: "#0f172a",
         theme_color: "#3b82f6",
