@@ -409,7 +409,7 @@ export default function Routing() {
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center mb-2">Abrir navegação em</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Button onClick={() => handleExport('google')} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-100 shadow-sm h-12 font-bold rounded-2xl">
-                      <img src="https://www.google.com/images/branding/product/ico/maps15_b_64dp.png" className="w-5 h-5 mr-2" alt="" />
+                      <Navigation className="w-5 h-5 mr-2 text-blue-600" />
                       Google Maps
                     </Button>
                     <Button onClick={() => handleExport('whatsapp')} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-200/30 h-12 font-bold rounded-2xl">
