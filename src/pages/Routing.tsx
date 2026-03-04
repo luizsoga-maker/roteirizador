@@ -44,18 +44,16 @@ export default function Routing() {
   const processedDestinations = useMemo(() => {
     if (!destinations.trim()) return [];
     
-    // 1. Divide por quebras de linha, ponto e vírgula, ou barras verticais
-    // 2. Também tenta dividir por símbolos de "bullet" (•, *, -) se houver espaço depois
     const rawList = destinations.split(/\n|;|\||(?<=\s)[•*](?=\s)/);
     
     return rawList
       .map(addr => {
         return addr
-          .replace(/^[•*-\s]+/, '') // Remove bullets no início
-          .replace(/^\d+[\s.)-]+\s*/, '') // Remove números como "1.", "1)", "1-"
+          .replace(/^[•*-\s]+/, '') 
+          .replace(/^\d+[\s.)-]+\s*/, '') 
           .trim();
       })
-      .filter(addr => addr.length > 8); // Endereços válidos costumam ter mais de 8 caracteres
+      .filter(addr => addr.length > 8); 
   }, [destinations]);
 
   const handleFetchLocation = useCallback((highAccuracy = true) => {
@@ -168,7 +166,7 @@ export default function Routing() {
     }
   };
 
-  const handleExport = (type: 'google' | 'apple' | 'whatsapp') => {
+  const handleExport = (type: 'google' | 'whatsapp') => {
     if (optimizedLocations.length === 0) return;
 
     if (type === 'whatsapp') {
@@ -186,9 +184,7 @@ export default function Routing() {
     const destination = encodeURIComponent(optimizedLocations[optimizedLocations.length - 1].addr);
     const waypoints = optimizedLocations.slice(1, -1).map(l => encodeURIComponent(l.addr)).join("|");
 
-    const url = type === 'google' 
-      ? `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`
-      : `http://maps.apple.com/?saddr=${origin}&daddr=${destination}&dirflg=d`;
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
     window.open(url, "_blank");
   };
 
@@ -411,14 +407,10 @@ export default function Routing() {
                 
                 <div className="p-6 bg-slate-50/30 border-t border-slate-50 space-y-3 print:hidden">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center mb-2">Abrir navegação em</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Button onClick={() => handleExport('google')} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-100 shadow-sm h-12 font-bold rounded-2xl">
                       <img src="https://www.google.com/images/branding/product/ico/maps15_b_64dp.png" className="w-5 h-5 mr-2" alt="" />
                       Google Maps
-                    </Button>
-                    <Button onClick={() => handleExport('apple')} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-100 shadow-sm h-12 font-bold rounded-2xl">
-                      <Smartphone className="w-5 h-5 mr-2 text-slate-400" />
-                      Apple Maps
                     </Button>
                     <Button onClick={() => handleExport('whatsapp')} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-200/30 h-12 font-bold rounded-2xl">
                       <MessageCircle className="w-5 h-5 mr-2" />
